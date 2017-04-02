@@ -23,8 +23,8 @@ for k in range(6):
     for i in range(len(snr)):
         error = 0
         No = 1/snr[i]  #每個symbol只送一次能量
-        #已知 SNR = Ex / No
-        #令symbol 能量 Es =1 ，因為一次只送一個symbol所以Ex = Es = 1
+        #已知 SNR = Eb / No
+        #令symbol 能量 Es =1 ，因為一次只送一個symbol所以Eb = Es = 1
         #所以 No = 1 / SNR
         if k==2:# MRC(1x2) (theory)
             ber[i] = 1 / 2 - 1 / 2 * np.power(1 + 1 / snr[i], -1 / 2)

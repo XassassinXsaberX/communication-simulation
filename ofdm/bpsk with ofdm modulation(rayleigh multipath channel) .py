@@ -48,6 +48,7 @@ for k in range(2):
                             X[m] = -1
                     else:
                         X[m] = 0
+
                 # 將頻域的Nfft個 symbol 做 ifft 轉到時域
                 x = np.fft.ifft(X) * Nfft / np.sqrt(Nusc)
                 # 乘上Nfft / np.sqrt(Nusc)可將一個OFDM symbol的總能量normalize成 1* Nfft
@@ -65,6 +66,7 @@ for k in range(2):
                     x_new[n] = x[m]
                     n += 1
                 x = x_new  #現在x已經有加上cyclic prefix
+
 
                 #接下來產生L條path，且假設每一條路徑在一個OFDM symbol 周期內為常數  (所以coherence time > OFDM symbol period)
                 y = [0]*(Nfft+n_guard)  #先將接收端會收到的向量清空
@@ -90,24 +92,6 @@ for k in range(2):
                 for m in range(len(y)):
                     y[m] = y[m] * np.sqrt((Nfft + n_guard) / Nfft)
 
-                # 我們亦可用此方法來找出不考慮雜訊下的通道頻率響應為何
-                # 先對接收向量去除cyclic prefix
-                y_new = [0] * Nfft
-                n = 0
-                for m in range(n_guard, Nfft + n_guard, 1):
-                    y_new[n] = y[m]
-                    n += 1
-                # 現在y_new已經去除OFDM的cyclic prefix
-                # 接下來將y_new作FFT
-                Y = np.fft.fft(y_new) * np.sqrt(Nusc) / Nfft
-                # 我們可以找出通道的頻率響應了
-                H2 = [0] * Nfft
-                for m in range(len(H2)):
-                    if X[m] == 0:
-                        H2[m] = 0
-                    else:
-                        H2[m] = Y[m] / X[m]
-                # H2也是我們通道的頻率響應(相對不準確，因為部分頻率處被強制定為0)，也是有64個點
 
                 ######################################################################################################
                 # 以上為傳送端
@@ -142,7 +126,6 @@ for k in range(2):
                 for m in range(Nfft):
                     if (m>2 and m<29) or (m>34 and m<61):
                         if abs((Y[m]/H[m])-1) < abs((Y[m]/H[m])+1):
-                        #亦可用  if abs((Y[m]/H2[m])-1) < abs((Y[m]/H2[m])+1):  結果相同
                             Y[m] = 1
                         else:
                             Y[m] = -1

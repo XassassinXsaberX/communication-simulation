@@ -59,8 +59,8 @@ for k in range(8):#總共有SISO、SISO theory、Alamouti(2x1)、Alamouti(2x1) t
 
             elif k==3: #Alamouti(2x1)
                 No = 2 / snr[i]          # 因為重複次兩次相同symbol，所以能量變兩倍
-                #已知 SNR = Ex / No
-                #令symbol 能量 Es =1 ，因為一次重複送兩個symbol所以Ex = 2Es = 2
+                #已知 SNR = Eb / No
+                #令symbol 能量 Es =1 ，因為一次重複送兩個symbol所以Eb = 2Es = 2
                 #所以 No = 2 / SNR
                 b1 = np.random.random()  # 產生一個 (0,1) uniform 分布的隨機變數來決定送哪個bit
                 b2 = np.random.random()  # 產生一個 (0,1) uniform 分布的隨機變數來決定送哪個bit
