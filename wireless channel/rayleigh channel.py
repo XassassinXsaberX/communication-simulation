@@ -2,6 +2,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import simulation.multipath
 
+# reference: http://matplotlib.org/users/mathtext.html
+
 t = [0]*10000
 a0 = [0j]*len(t)
 a1 = [0j]*len(t)
@@ -29,18 +31,19 @@ for j in range(3):
         a1[i] = abs(a1[i])
         a1[i] = 10*np.log(a1[i])
 
-    plt.figure('wm = 2*{0}*pi    path1'.format(fd))
-    plt.title('wm = 2*{0}*pi    path1'.format(fd))
+    plt.figure(r'$\omega_m=2*{0}\pi\/\/\/(path1)$'.format(fd))
+    plt.title(r'$\omega_m=2*{0}\pi\/\/\/(path1)$'.format(fd))
     plt.xlabel('time (sec)')
     plt.ylabel('Rayleigh envelop in dB')
     plt.plot(t,a0)
+    plt.xlim(0, 0.25)
 
-    plt.figure('wm = 2*{0}*pi    path2'.format(fd))
-    plt.title('wm = 2*{0}*pi    path2'.format(fd))
+    plt.figure(r'$\omega_m = 2*{0}\pi\/\/\/(path2)$'.format(fd))
+    plt.title(r'$\omega_m = 2*{0}\pi\/\/\/(path2)$'.format(fd))
     plt.xlabel('time (sec)')
     plt.ylabel('Rayleigh envelop in dB')
     plt.plot(t,a1)
-
+    plt.xlim(0,0.25)
 
 #接下來看看這個模型的統計特性
 t = [0]*100000
@@ -59,15 +62,16 @@ for i in range(len(t)):
     a0_image[i] = a0[i].imag
 
 plt.figure('統計特性')
-n,bins,c = plt.hist(a0_real,100,normed=True)
+n,bins,c = plt.hist(a0_real,100,normed=True,label='pdf of channel fading real part')
 y = [0]*len(bins)
 std = 1/np.sqrt(2)
 mu = 0
 for i in range(len(y)):
     y[i] = 1/(np.sqrt(2*np.pi)*std)*np.exp(-((bins[i]-mu)**2)/(2*std**2))
 
-plt.plot(bins,y)
-
+plt.plot(bins,y,label='gaussian distribution (mean = 0, variance = 1/2)')
+plt.ylabel('pdf')
+plt.legend()
 plt.show()
 
 

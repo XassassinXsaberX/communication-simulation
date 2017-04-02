@@ -21,94 +21,64 @@ for k in range(5):#總共有BPSK  QPSK  8-PSK三種調變
         error = 0
         for j in range(N):
             if k == 0 :#bpsk
+                # 決定bpsk的2個星座點
+                constellation = [-1,1]
                 No = 1/snr[i]
-                symbol = np.random.random()
-                if symbol > 0.5:
-                    symbol = 1
-                else:
-                    symbol=-1
-                receive_symbol = symbol + np.sqrt(No/2)*np.random.randn() + 1j*np.sqrt(No/2)*np.random.randn()
-                if abs(receive_symbol-1) < abs(receive_symbol+1):
-                    receive_symbol = 1
-                else:
-                    receive_symbol = -1
-                if receive_symbol != symbol:
-                    error +=1
-
-            elif k == 2 :#qpsk
+            elif k == 2:  # qpsk
+                # 決定qsk的4個星座點
                 # SNR = Eb / No
-                #若星座點為1+1j，則Es = 2，Eb = 1，故SNR = 1 / No
+                # 若星座點為1+1j，則Es = 2，Eb = 1，故SNR = 1 / No
+                constellation = [1+1j, 1-1j, -1+1j, -1-1j]
                 No = 1/snr[i]
-
-                #決定星座圖
-                map = [0]*4
-                map[0] = 1+1j
-                map[1] = -1+1j
-                map[2] = -1-1j
-                map[3] = 1-1j
-
-                #決定送出哪星座點symbol
-                symbol = np.random.random() # 產生一個 (0,1) uniform 分布的隨機變數
-                if symbol < 1/4:
-                    symbol = map[0]
-                elif symbol< 2/4:
-                    symbol = map[1]
-                elif symbol< 3/4:
-                    symbol = map[2]
-                else:
-                    symbol = map[3]
-
-                #送出的symbol加上AWGN雜訊
-                receive_symbol = symbol + np.sqrt(No/2)*np.random.randn() + 1j*np.sqrt(No/2)*np.random.randn()
-
-                #判斷收到的信號梨哪個星座點最近，用此來進行detection
-                m = 10000000
-                for n in range(4):
-                    if abs(receive_symbol-map[n]) < m:
-                        m = abs(receive_symbol-map[n])
-                        receive = map[n]
-                if receive != symbol:
-                    error +=1
-
-            elif k == 3 :#8-psk
+            elif k == 3:  # 8-psk
+                # 決定8-psk的8個星座點
                 # SNR = Eb / No
                 # 若Es = 1，因為Es = 3*Eb。所以Eb = 1/3，故SNR = (1/3) / No
-                No = (1/3)/snr[i]
-                map = [0]*8
-                for m in range(len(map)):
-                    map[m] = np.cos(2*np.pi/8*(m-1))-1j*np.sin(2*np.pi/8*(m-1))
+                constellation = [0]*8
+                No = (1/3) / snr[i]
+                for m in range(len(constellation)):
+                    constellation[m] = np.cos(2*np.pi/8*(m-1))-1j*np.sin(2*np.pi/8*(m-1))
 
-                symbol = np.random.random()
-                for m in range(len(map)):
-                    if symbol <= (m+1)/8:
-                        symbol = map[m]
-                        break
 
-                receive_symbol = symbol + np.sqrt(No/2)*np.random.randn() + 1j*np.sqrt(No/2)*np.random.randn()
-                m = 10000000
-                for n in range(8):
-                    if abs(receive_symbol-map[n]) < m:
-                        m = abs(receive_symbol-map[n])
-                        receive = map[n]
-                if receive != symbol:
-                    error +=1
+            b = np.random.random()# 產生一個 (0,1) uniform 分布的隨機變數，來決定要送哪個symbol
+            for m in range(len(constellation)):
+                if b <= (m+1)/len(constellation):
+                    symbol = constellation[m]
+                    break
 
-        if k == 0:
-            ber[i] = error/N
-        elif k == 2: #因為qpsk 的 bit error rate 大約為 (symbol error rate / 2)
-            ber[i] = error/N/2
-        elif k == 3: # 因為8-psk 的 bit error rate 大約為 (symbol error rate / 3)
-            ber[i] = error/N/3
+
+            # 接下來加上雜訊
+            receive = symbol + np.sqrt(No / 2) * np.random.randn() + 1j * np.sqrt(No / 2) * np.random.randn()
+
+            # 接收端利用Maximum Likelihood來detect symbol
+            min_distance = 10 ** 9
+            for m in range(len(constellation)):
+                if abs(constellation[m] - receive) < min_distance:
+                    detection = constellation[m]
+                    min_distance = abs(constellation[m] - receive)
+
+            # 紀錄錯幾個symbol
+            if detection != symbol:
+                error += 1
+
+
+        if k == 0:   #bpsk的ber
+            ber[i] = error / N
+        elif k == 2: #qpsk的ber = symbol error rate / 2
+            ber[i] = error / (2*N)
+        elif k == 3: #8-psk的ber = symbol error rate / 3
+            ber[i] = error / (3*N)
+
     if k==0:
-        plt.semilogy(snr_db,ber,label='bpsk (simulation)')
+        plt.semilogy(snr_db,ber,marker='o',label='bpsk (simulation)')
     elif k==1:
-        plt.semilogy(snr_db,ber,label='bpsk (theory)')
+        plt.semilogy(snr_db,ber,marker='o',label='bpsk (theory)')
     elif k==2:
-        plt.semilogy(snr_db,ber,label='qpsk (simulation)')
+        plt.semilogy(snr_db,ber,marker='o',label='qpsk (simulation)')
     elif k==3:
-        plt.semilogy(snr_db,ber,label='8-psk (simulation)')
+        plt.semilogy(snr_db,ber,marker='o',label='8-psk (simulation)')
     elif k==4:
-        plt.semilogy(snr_db,ber,label='8-psk (theory)')
+        plt.semilogy(snr_db,ber,marker='o',label='8-psk (theory)')
 
 plt.grid(True,which='both')
 plt.legend()
