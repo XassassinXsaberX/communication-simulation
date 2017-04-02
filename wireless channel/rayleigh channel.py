@@ -68,11 +68,8 @@ for i in range(len(y)):
 
 plt.plot(bins,y)
 
-
-
-
 plt.show()
 
-#a = simulation.multipath.rayleigh(wm, 0.001, 2)[0]
+
 
 

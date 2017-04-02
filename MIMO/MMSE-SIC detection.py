@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import math
 
+#reference  http://www.dsplog.com/2008/12/06/mimo-with-mmse-sic-and-optimal-ordering/
 snr_db = [0]*12
 snr = [0]*12
 ber = [0]*12
@@ -191,7 +192,7 @@ for k in range(6):
     elif k==4:
         plt.semilogy(snr_db, ber, marker='o', label='MMSE-SIC ')
     elif k==5:
-        plt.semilogy(snr_db, ber, marker='o', label=' MMSE-SIC-sort')
+        plt.semilogy(snr_db, ber, marker='o', label='MMSE-SIC-sort')
     #elif k==6:
     #    plt.semilogy(snr_db, ber, marker='o', label=' MMSE-SIC-sort')
 plt.legend()
@@ -199,3 +200,4 @@ plt.ylabel('ber')
 plt.xlabel('snr (Eb/No) dB')
 plt.grid(True,which='both')
 plt.show()
+

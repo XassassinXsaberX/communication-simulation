@@ -189,9 +189,9 @@ for k in range(6):
     elif k==3:
         plt.semilogy(snr_db,ber,marker='o',label='SISO(BPSK) (theory-formula1)')
     elif k==4:
-        plt.semilogy(snr_db, ber, marker='o', label=' ZF-SIC ')
+        plt.semilogy(snr_db, ber, marker='o', label='ZF-SIC ')
     elif k==5:
-        plt.semilogy(snr_db, ber, marker='o', label=' ZF-SIC-sort')
+        plt.semilogy(snr_db, ber, marker='o', label='ZF-SIC-sort')
     #elif k==6:
     #    plt.semilogy(snr_db, ber, marker='o', label=' MMSE-SIC-sort')
 plt.legend()
