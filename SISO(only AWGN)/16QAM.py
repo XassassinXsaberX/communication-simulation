@@ -18,7 +18,13 @@ constellation =  [1+1j,1+3j,3+1j,3+3j,-1+1j,-1+3j,-3+1j,-3+3j,-1-1j,-1-3j,-3-1j,
 for k in range(3):
     for i in range(len(snr_db)):
         if k == 0: #16QAM theory
+            # theroy 1
             ber[i] = 2*(np.sqrt(16)-1)/np.sqrt(16)/4*math.erfc(np.sqrt((4*snr[i])/10))
+
+            # theroy 2
+            #ber[i] = 3/4*(1/2)*math.erfc(np.sqrt(snr[i]*4/10))
+            #ber[i] += 1/2*(1/2)*math.erfc(3*np.sqrt(snr[i]*4/10))
+            #ber[i] -= 1/4*(1/2)*math.erfc(5*np.sqrt(snr[i]*4/10))
             continue
         elif k == 1:#16-psk theory
             ber[i] = 1/4*math.erfc(np.sqrt(4*snr[i])*np.sin(np.pi/16))
@@ -49,11 +55,21 @@ for k in range(3):
                     detection = constellation[m]
                     min_distance = abs(constellation[m] - receive)
 
-            # 紀錄錯幾個symbol
+            # 紀錄錯幾個bit
+            # 我們這次不找錯幾個symbol，因為在SNR很小時，symbol error rate / 4 不等於 ber error rate
             if detection != symbol :
-                error += 1
+                if abs(detection.real-symbol.real) == 2 or abs(detection.real-symbol.real) == 6:
+                    error += 1
+                elif abs(detection.real-symbol.real) == 4:
+                    error += 2
+                if abs(detection.imag-symbol.imag) == 2 or abs(detection.imag-symbol.imag) == 6:
+                    error += 1
+                elif abs(detection.imag-symbol.imag) == 4:
+                    error += 2
 
-        ber[i] = 1/4 * (error / N) #16QAM的BER = symbol error rate / 4
+
+        ber[i] = error / (4*N)
+
 
     if k == 0:
         plt.semilogy(snr_db, ber, marker='o', label='16QAM (theory)')
