@@ -3,16 +3,18 @@ import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 import math
 
-# Channel Estimation for OFDM systems ( LS )
-# pilot 採用comb type 排列
+# Channel Estimation for OFDM systems (KL expansion)
+# pilot arrangement : comb type pilot
+# 採用非時變通道
+# 可以自由調整 multipath數目L
 
 
 snr_db = [0]*9
 snr = [0]*9
 ber = [0]*9
-ber_ideal = [0]*9       #用來紀錄，若已知通道情況下，卻還多傳送pilot的BER
+ber_ideal =[0]*9        #用來紀錄，若已知通道情況下，卻還多傳送pilot的BER
 mse = [0]*9
-N = 10000              #執行N次來找錯誤率
+N = 100000              #執行N次來找錯誤率
 Nfft = 64               #總共有多少個sub channel
 Np = 16                 #共16個pilot
 X = [0]*64              #從頻域送出64
@@ -22,9 +24,7 @@ for m in range(len(pilot_locate)):
     pilot_locate[m] = m*(Nfft//Np)
 t_sample = 5*10**(-8)   #取樣間隔
 n_guard = 16            #經過取樣後有n_guard個點屬於guard interval，Nfft個點屬於data interval
-L = 3                   #假設有L條path  (注意L大小會影響通道估測的結果，因為L越大代表delay越嚴重，freequency selective特性也越嚴重)
-                        #我們還可以注意到，在沒有雜訊的情況下，如果L=1則BER=0，如果L越大，則出現錯誤，且L越大錯誤越嚴重
-                        #這是因為multipath 造成的通道扭曲，我們稱為frequency selective
+L = 5                   #假設有L條path  (L越大代表delay越嚴重，freequency selective特性也越嚴重)
 h = [0]*L               #每個元素代表L條path各自的impulse response  (因為在一個OFDM symbol period內為常數，所以很明顯是非時變通道)
 
 
@@ -42,7 +42,26 @@ for i in range(len(snr_db)):
 plt.figure('1')
 plt.figure('2')
 
-for k in range(3):
+# 我們先定義好L個頻域相位偏移向量 v0, v1, v2 ... ,vL
+# 分別代表時域向量delay 0 單位時，頻域會出現相位偏移(為有Nfft個點的向量)
+# 分別代表時域向量delay 1 單位時，頻域會出現相位偏移(為有Nfft個點的向量)
+# ......
+# 當時域信號向量delay k單位，頻域信號的向量的元素就要乘上對應的相位偏移
+E = [[0]*L for i in range(Nfft)]
+for i in range(L):
+    for j in range(Nfft):
+        E[j][i] = np.exp(-1j*2*np.pi*j*i/Nfft)/np.sqrt(Nfft)
+
+# 決定piltot 位置處的L個頻域相位偏移向量構成的矩陣Ep
+Ep = [[0]*len(E[0]) for m in range(Np)]
+for m in range(len(E[0])):
+    for n in range(Np):
+        Ep[n][m] = E[pilot_locate[n]][m]
+Ep = np.matrix(Ep)
+
+
+
+for k in range(5):
     for i in range(len(snr)):
         MSE = 0
         error = 0
@@ -53,7 +72,7 @@ for k in range(3):
         for j in range(N):
             #決定所有sub-channel要送哪些信號
             for m in range(Nfft):
-                if m in pilot_locate: #令pilot一律送出1
+                if (m in pilot_locate) == True: #令pilot一律送出1
                     X[m] = 1
                 else:                      #這裡的sub channel 才是送出data
                     b = np.random.random()
@@ -97,21 +116,6 @@ for k in range(3):
             for m in range(len(y)):
                 y[m] = y[m] * np.sqrt((Nfft + n_guard) / Nfft)
 
-            # 讓我們來找在不考慮雜訊下的通道頻率響應為何
-            # 先對接收向量去除cyclic prefix
-            y_new = [0] * Nfft
-            n = 0
-            for m in range(n_guard, Nfft + n_guard, 1):
-                y_new[n] = y[m]
-                n += 1
-            # 現在y_new已經去除OFDM的cyclic prefix
-            # 接下來將y_new作FFT
-            Y = np.fft.fft(y_new) * np.sqrt(Nusc) / Nfft
-            #我們可以找出通道的頻率響應了
-            H_real2 = [0]*Nfft
-            for m in range(len(H_real2)):
-                H_real2[m] = Y[m] / X[m]
-            #H_real2也是我們通道的頻率響應，也是有64個點
 
             ######################################################################################################
             # 以上為傳送端
@@ -158,37 +162,48 @@ for k in range(3):
                     H[i] = H_new[i]
                 return H
 
-            #利用LS來進行channel estimation
-            H_LS = [0]*Np
-            for m in range(Np):
-                detection = X[pilot_locate[m]]
-                H_LS[m] = Y[pilot_locate[m]] / X[pilot_locate[m]]
-            #現在要在H_LS向量中Np個進行內插，內插後變成Nfft個點
-            if k==1 :
-                H = interpolate(H_LS,Nfft,Np)
-            elif k==2 :
-                H = interpolate(H_LS,Nfft,Np,'linear')
-            #H就是估計出來的通道頻率響應，有Nfft個點
+            if k ==1 :#利用LS來進行channel estimation
+                H_LS = [0]*Np
+                for m in range(Np):
+                    detection = X[pilot_locate[m]]
+                    H_LS[m] = Y[pilot_locate[m]] / X[pilot_locate[m]]
 
-            # 以下會畫圖來比較進行內插前後的結果
-            #H1 = [0]*Nfft
-            #for m in range(Np):
-            #    H1[pilot_locate[m]] = Y[pilot_locate[m]] / X[pilot_locate[m]]
-            #x1 = [0]*Nfft
-            #for m in range(len(x1)):
-            #    x1[m] = m
-            #plt.plot(x1,np.abs(H_real2),marker='o',label='real channel frequency response')
-            #plt.plot(x1,np.abs(H), marker='o',label='LS channel estimation')
-            #plt.plot(x1, np.abs(H1), marker='o', label='before interpolate')
-            #plt.legend()
-            #plt.show()
+                #現在要在H_LS向量中Np個進行內插，內插後變成Nfft個點
+                H = interpolate(H_LS,Nfft,Np)
+                #H就是估計出來的通道頻率響應，有Nfft個點
+
+            elif k == 2 :#利用KL expansion來進行channel estimation
+                H_LS = [0]*Np
+                for m in range(Np):
+                    detection = X[pilot_locate[m]]
+                    H_LS[m] = Y[pilot_locate[m]] / X[pilot_locate[m]]
+
+                #利用LS solution找出c向量
+                c = (Ep.getH()*Ep).I*Ep.getH()*(np.matrix(H_LS).transpose())
+                #找出c之後，就可以估計channel
+                H = np.matrix(E)*c
+                H = np.array(H)
+
+
+                # 以下會畫圖來比較進行內插前後的結果
+                #H1 = [0]*Nfft
+                #for m in range(Np):
+                #    H1[pilot_locate[m]] = Y[pilot_locate[m]] / X[pilot_locate[m]]
+                #x1 = [0]*Nfft
+                #for m in range(len(x1)):
+                #    x1[m] = m
+                #plt.plot(x1,np.abs(H_real),marker='o',label='real channel frequency response')
+                #plt.plot(x1,np.abs(H), marker='o',label='KL_expansion channel estimation')
+                #plt.plot(x1, np.abs(H1),linestyle=' ', marker='o', label='before interpolate')
+                #plt.legend()
+                #plt.show()
 
             #估計出通道後就可以來進行detection
             for m in range(Nfft):
-                # 求MSE時可將估計出來的通道頻率響應和H_real2或和H_real比較
+                # 求MSE時可將估計出來的通道頻率響應和H_real比較
                 MSE += abs(H_real[m] - H[m])**2
                 if m not in pilot_locate:
-                    #統計使用estimate的通道來detect，會錯幾個symbol
+                    # 統計使用estimate的通道來detect，會錯幾個symbol
                     detection = Y[m] / H[m]
                     if abs(detection-1) < abs(detection+1):
                         detection = 1
@@ -197,7 +212,7 @@ for k in range(3):
                     if detection != X[m]:
                         error += 1
 
-                    #統計使用真實的通道來detect，會錯幾個symbol
+                    # 統計使用真實的通道來detect，會錯幾個symbol
                     detection = Y[m] / H_real[m]
                     if abs(detection - 1) < abs(detection + 1):
                         detection = 1
@@ -206,9 +221,8 @@ for k in range(3):
                     if detection != X[m]:
                         error_ideal += 1
 
-
-        ber[i] = error / ((Nfft-Np)*N)              #使用估測通道後的錯誤率
-        ber_ideal[i] = error_ideal / ((Nfft-Np)*N)  #在已知通道卻仍傳送pilot的最低錯誤率(錯誤率一定最低，因為通道變為已知)
+        ber[i] = error / ((Nfft - Np) * N)              # 使用估測通道後的錯誤率
+        ber_ideal[i] = error_ideal / ((Nfft - Np) * N)  # 在已知通道卻仍傳送pilot的最低錯誤率(錯誤率一定最低，因為通道變為已知)
         mse[i] = MSE / (Nfft*N)
     if k==0 :
         plt.figure('1')
@@ -218,10 +232,12 @@ for k in range(3):
         plt.semilogy(snr_db,ber,marker='o',label='LS channel estimation(cubic interpolation)')
         plt.semilogy(snr_db,ber_ideal,marker='o',label='known channel (still transmit pilot)')
         plt.figure('2')
-        plt.semilogy(snr_db, mse, marker='o', label='MSE for LS channel estimation(cubic interpolation)')
+        plt.semilogy(snr_db,mse,marker='o',label='MSE for LS channel estimation(cubic interpolation)')
     elif k==2:
         plt.figure('1')
-        plt.semilogy(snr_db,ber,marker='o',label='LS channel estimation(linear interpolation)')
+        plt.semilogy(snr_db,ber,marker='o',label='KL_expansion channel estimation')
+        plt.figure('2')
+        plt.semilogy(snr_db,mse,marker='o',label='MSE for KL_expansion channel estimation')
 
 plt.figure('1')
 plt.xlabel('Eb/No , dB')
