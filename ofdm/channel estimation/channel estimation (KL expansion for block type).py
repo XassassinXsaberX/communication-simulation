@@ -6,7 +6,7 @@ import math
 
 # Channel Estimation for OFDM systems (KL expansion)
 # pilot arrangement : block type pilot
-# 採用時變通道
+# 採用時變通道(使用自製的simulation套件的multipath通道)
 # 可以自由調整 multipath數目L、maximum doppler frequency wm
 
 
@@ -15,7 +15,7 @@ snr = [0]*9
 ber = [0]*9
 ber_ideal = [0]*9
 mse = [0]*9
-N = 1000000                        #送多少個OFDM symbol來找錯誤率
+N = 1000000                        #送多少個OFDM symbol來找錯誤率  (以這種simulation模型，我們必須送1000000個symbol，才會有雷利分佈)
 Nfft = 64                           #總共有多少個sub channel
 n_guard = 16                        #經過取樣後有n_guard個點屬於guard interval，Nfft個點屬於data interval
 X = [0]*Nfft                        #從頻域送出Nfft個symbol
@@ -37,7 +37,7 @@ H_real_matrix = [[0]*Nb for i in range(Nfft)]
 t_sample = 1*10**(-5)               #取樣間隔
 Ts = t_sample*(Nfft+n_guard)        #送一個OFDM symbol所需的總時間
 L = 1                               #假設有L條path  (L越大代表delay越嚴重，freequency selective特性也越嚴重)
-wm = 2*np.pi*1                     #maximum doppler frequency (wm越大，通道時變性越嚴重)
+wm = 2*np.pi*10                     #maximum doppler frequency (wm越大，通道時變性越嚴重)
 h = [0]*L
 
 count = 0                           #用來紀錄收到幾個OFDM symbol，每收到Nb個OFDM symbol才能進行estimation
@@ -93,8 +93,8 @@ for k in range(2):
             continue
         for j in range(N):
             #我們要記錄Nb = 32次，每次送出Nfft = 64個sub channel的symbol
-            #所以會有32個行向量，每個行向量有64個元素
-            #這些行向量組成一個矩陣X
+            #所以會有32個行向量X，每個行向量有64個元素
+            #這些行向量組成一個矩陣X_matrix
 
             #決定所有sub-channel要送哪些信號
             if j%N_interval == 0 :#N_interval=4, 所以當在第0,4,8,.....的OFDM symbol，此時所有sub channel都只送pilot

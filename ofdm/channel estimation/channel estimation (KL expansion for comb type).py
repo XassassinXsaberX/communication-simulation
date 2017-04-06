@@ -14,7 +14,7 @@ snr = [0]*9
 ber = [0]*9
 ber_ideal =[0]*9        #用來紀錄，若已知通道情況下，卻還多傳送pilot的BER
 mse = [0]*9
-N = 100000              #執行N次來找錯誤率
+N = 10000000              #執行N次來找錯誤率
 Nfft = 64               #總共有多少個sub channel
 Np = 16                 #共16個pilot
 X = [0]*64              #從頻域送出64
@@ -24,7 +24,7 @@ for m in range(len(pilot_locate)):
     pilot_locate[m] = m*(Nfft//Np)
 t_sample = 5*10**(-8)   #取樣間隔
 n_guard = 16            #經過取樣後有n_guard個點屬於guard interval，Nfft個點屬於data interval
-L = 5                   #假設有L條path  (L越大代表delay越嚴重，freequency selective特性也越嚴重)
+L = 1                   #假設有L條path  (L越大代表delay越嚴重，freequency selective特性也越嚴重)
 h = [0]*L               #每個元素代表L條path各自的impulse response  (因為在一個OFDM symbol period內為常數，所以很明顯是非時變通道)
 
 
@@ -59,7 +59,7 @@ for m in range(len(E[0])):
         Ep[n][m] = E[pilot_locate[n]][m]
 Ep = np.matrix(Ep)
 
-
+print('目前正在處理 N={0}, L={1}'.format(N,L))
 
 for k in range(5):
     for i in range(len(snr)):
@@ -252,5 +252,6 @@ plt.ylabel('MSE')
 plt.title('number of multipath = {0}'.format(L))
 plt.grid(True,which='both')
 plt.legend()
+print('處理完成')
 plt.show()
 
