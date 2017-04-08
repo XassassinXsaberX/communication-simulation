@@ -18,10 +18,10 @@ H = [[0j] * Nt for i in range(Nr)]
 H = np.matrix(H)
 H_new = [[0j] * (2*Nt) for i in range(2*Nr)]
 H_new = np.matrix(H_new)
-symbol = [0] * Nt  # 因為有Nt根天線，而且接收端不採用任何分集技術，所以會送Nt個不同symbol
+symbol = [0] * Nt      # 因為有Nt根天線，而且接收端不採用任何分集技術，所以會送Nt個不同symbol
 symbol_new = [0]*2*Nt  # 除此之外我們還採用將傳送向量取實部、虛部重新組合後，所以向量元素變兩倍
-y = [0] * Nr  # 接收端的向量，並對其取實部、虛部重新組合後得到的新向量
-y_new = [0]*2*Nr
+y = [0] * Nr           # 接收端的向量
+y_new = [0]*2*Nr       # 將接收端的向量，對其取實部、虛部重新組合後得到的新向量
 
 # 定義星座點，QPSK symbol值域為{1+j , 1-j , -1+j , -1-j }
 # 則實部、虛部值域皆為{ -1, 1 }
@@ -36,12 +36,18 @@ for k in range(2):
         error = 0
         total = 0
         visit = 0 #用來紀錄經過幾個node
-        for j in range(N):
-            # 已知 SNR = Eb / No
-            # 令symbol 能量 Es =2 。採用QPSK調變，所以2個bit有2能量，平均1bit有1能量
-            # 所以 No = 1 / SNR
-            No = 1 / snr[i]  # 每個symbol只送一次能量
 
+        K = int(np.log2(len(constellation)))  # 代表一個symbol含有K個bit
+        # 接下來要算平均一個symbol有多少能量
+        energy = 0
+        for m in range(len(constellation)):
+            energy += abs(constellation[m]) ** 2
+        Es = energy / len(constellation)      # 平均一個symbol有Es的能量
+        Eb = Es / K                           # 平均一個bit有Eb能量
+        # 因為沒有像space-time coding 一樣重複送data，所以Eb不會再變大
+        No = Eb / snr[i]                      # 最後決定K
+
+        for j in range(N):
             for m in range(len(symbol)):  # 決定傳送向量，要送哪些實數元素
                 b = np.random.random()  # 產生一個 (0,1) uniform 分布的隨機變數，來決定要送哪個symbol
                 for n in range(len(constellation)):
@@ -165,9 +171,8 @@ for k in range(2):
                     error += 1
                 if abs(optimal_detection[m].imag - symbol_new[m].imag) == 2:
                     error += 1
-            total += (2 * Nt)
 
-        ber[i] = error / (2 * Nt * N)
+        ber[i] = error / (K * Nt * N)  # 除以K是因為一個symbol有K個bit
         visited_node[i] = visit / N
 
     if k == 0:

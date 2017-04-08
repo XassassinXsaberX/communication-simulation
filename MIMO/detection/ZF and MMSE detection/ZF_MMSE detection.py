@@ -12,21 +12,28 @@ for i in range(len(snr)):
     snr_db[i] = 2*i
     snr[i] = np.power(10,snr_db[i]/10)
 
+constellation = [ -1, 1 ]  #定義星座點的集合
 
 #這裡採用 Nt x Nr 的MIMO系統，所以通道矩陣為 Nr x Nt
 H = [[0j]*Nt for i in range(Nr)]
 H = np.matrix(H)
 symbol = [0]*Nt #因為有Nt根天線，而且接收端不採用任何分集技術，所以會送Nt個不同symbol
-y = [0]*Nr  #接收端的向量
+y = [0]*Nr      #接收端的向量
 
 for k in range(5):
     for i in range(len(snr)):
         error = 0
-        No = 1/snr[i]  #每個symbol只送一次能量
-        # 已知 SNR = Eb / No
-        # 令symbol 能量 Es =1 。採用BPSK調變，所以Eb = Es = 1
-        # 因為一次只送一個symbol(即沒有重複送相同data)所以Eb = Es = 1
-        # 所以 No = 1 / SNR
+
+        K = int(np.log2(len(constellation)))  # 代表一個symbol含有K個bit
+        # 接下來要算平均一個symbol有多少能量
+        energy = 0
+        for m in range(len(constellation)):
+            energy += abs(constellation[m]) ** 2
+        Es = energy / len(constellation)    # 平均一個symbol有Es的能量
+        Eb = Es / K                         # 平均一個bit有Eb能量
+        # 因為沒有像space-time coding 一樣重複送data，所以Eb不會再變大
+        No = Eb / snr[i]                    # 最後決定No
+
         if k==2:# MRC(1x2) (theory)
             ber[i] = 1 / 2 - 1 / 2 * np.power(1 + 1 / snr[i], -1 / 2)
             ber[i] = ber[i] * ber[i] * (1 + 2 * (1 - ber[i]))
@@ -39,13 +46,13 @@ for k in range(5):
             continue
 
         for j in range(N):
-            #決定要送哪些symbol (採用BPSK調變)
+            #決定要送哪些symbol
             for m in range(Nt): #接收端一次送出Nt個不同symbol
                 b = np.random.random()  # 產生一個 (0,1) uniform 分布的隨機變數
-                if b >= 0.5:
-                    symbol[m] = 1
-                else:
-                    symbol[m] = -1
+                for n in range(len(constellation)):
+                    if b <= (n + 1) / len(constellation):
+                        symbol[m] = constellation[n]
+                        break
 
             #先決定MIMO的通道矩陣
             for m in range(Nr):
@@ -63,35 +70,31 @@ for k in range(5):
             if k==0:#執行ZF detection
                 #決定ZE 的weight matrix
                 W = ((H.getH()*H)**(-1))*H.getH()  #W為 Nt x Nr 矩陣
-                receive = [0]*Nt
-                for m in range(Nt):
-                    for n in range(Nr):
-                        receive[m] += W[m,n]*y[n]
+            elif k == 1:  # 執行MMSE detection
+                # 決定MMSE 的weight matrix
+                W = ((H.getH() * H + 1 / snr[i] * np.identity(Nt)) ** (-1)) * H.getH()  # W為 Nt x Nr 矩陣
 
-                for m in range(Nt):
-                    if abs(receive[m]-1) < abs(receive[m]+1):
-                        receive_symbol = 1
-                    else:
-                        receive_symbol = -1
-                    if symbol[m] != receive_symbol:
-                        error += 1
-            elif k==1:#執行MMSE detection
-                #決定MMSE 的weight matrix
-                W = ((H.getH()*H + 1/snr[i]*np.identity(Nt))**(-1))*H.getH()  #W為 Nt x Nr 矩陣
-                receive = [0]*Nt
-                for m in range(Nt):
-                    for n in range(Nr):
-                        receive[m] += W[m,n]*y[n]
+            # receive向量 = W矩陣 * y向量
+            receive = [0]*Nt
+            for m in range(Nt):
+                for n in range(Nr):
+                    receive[m] += W[m,n]*y[n]
 
-                for m in range(Nt):
-                    if abs(receive[m]-1) < abs(receive[m]+1):
-                        receive_symbol = 1
-                    else:
-                        receive_symbol = -1
-                    if symbol[m] != receive_symbol:
-                        error += 1
+            for m in range(Nt):
+                # 接收端利用Maximum Likelihood來detect symbol
+                min_distance = 10 ** 9
+                for n in range(len(constellation)):
+                    if abs(constellation[n] - receive[m]) < min_distance:
+                        detection = constellation[n]
+                        min_distance = abs(constellation[n] - receive[m])
+                # 我們會將傳送端送出的第m個symbol，detect出來，結果為detection
 
-        ber[i] = error/(Nt*N)
+                if symbol[m] != detection:
+                    error += 1 # error為symbol error 次數
+
+
+        ber[i] = error/(K*Nt*N) #除以K是因為一個symbol有K個bit
+
     if k==0:
         plt.semilogy(snr_db,ber,marker='o',label='ZF')
     elif k==1:
