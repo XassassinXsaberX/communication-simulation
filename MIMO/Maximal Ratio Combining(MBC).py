@@ -27,10 +27,11 @@ for k in range(6):#總共有SISO、MRC(1x2)、MRC(1x4)、SISO(theory)、MRC(1x2)
                     symbol = 1
                 else:
                     symbol = -1
-                # SNR = Eb / No
-                # Eb = 1   so   No = 1 / SNR
-                # noise的variance = No/2
-                No = 2 / snr[i]   #因為重複誦兩次symbol，所以能量變兩倍
+                # 已知 SNR = Eb / No
+                # 令symbol 能量 Es =1 。採用BPSK調變，所以Eb = Es = 1
+                # 因為一次重複送兩個symbol所以平均一個bit的能量變兩倍 Eb_new = 2*Eb = 2
+                # 所以 No = 2 / SNR
+                No = 2 / snr[i]
                 h = [0] * 2
                 receive = 0
                 for l in range(2):

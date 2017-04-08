@@ -30,14 +30,17 @@ for k in range(3):
             ber[i] = 1/4*math.erfc(np.sqrt(4*snr[i])*np.sin(np.pi/16))
             continue
         error = 0
-        # 假設送出去的symbol有 1+j、1+3j、3+j、3+3j、-1+j、-1+3j、-3+j、-3+3j、-1-j、-1-3j、-3-j、-3-3j、1-j、1-3j、3-j、3-3j
-        # 能量分別為                      2  、10   、10 、18   、  2  、  10  、  10 、  18  、  2  、  10 、 10 、  18  、 2 、 10 、 10、 18
-        # 平均一個symbol 能量為 ( 2 + 10 + 10 + 18) * 4 / 16 = 10
-        # 其實若QAM為方形(M = L*L)，則 Es  = 2 / 3 * Eo * (M-1)-------------------------(請見我的筆記推導)
-        # 16QAM : Eo = 1(因為是用1+j)，M = 16 = 4*4，所以可推出 Es = 10
-        # 而16QAM每個symbol含有4bit，所以Eb = 10 / 4
-        # snr = Eb / No，故No = 10 / 4 / snr
-        No = 10 / 4 / snr[i]
+
+        K = int(np.log2(len(constellation)))  # 代表一個symbol含有K個bit
+        # 接下來要算平均一個symbol有多少能量
+        # 先將所有可能的星座點能量全部加起來
+        energy = 0
+        for m in range(len(constellation)):
+            energy += abs(constellation[m]) ** 2
+        Es = energy / len(constellation)      # 平均一個symbol有Es的能量
+        Eb = Es / K                           # 平均一個bit有Eb能量
+        No = Eb / snr[i]                      # 決定No
+
         for j in range(N):
             b = np.random.random()  # 產生一個 (0,1) uniform 分布的隨機變數，來決定送出去的信號
             for m in range(len(constellation)):
@@ -68,7 +71,7 @@ for k in range(3):
                     error += 2
 
 
-        ber[i] = error / (4*N)
+        ber[i] = error / (K*N) #因為平均一個symbol含有K個bit
 
 
     if k == 0:
