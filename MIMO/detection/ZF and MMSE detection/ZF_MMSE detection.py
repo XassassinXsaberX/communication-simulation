@@ -47,7 +47,7 @@ for k in range(5):
 
         for j in range(N):
             #決定要送哪些symbol
-            for m in range(Nt): #接收端一次送出Nt個不同symbol
+            for m in range(Nt): #傳送端一次送出Nt個不同symbol
                 b = np.random.random()  # 產生一個 (0,1) uniform 分布的隨機變數
                 for n in range(len(constellation)):
                     if b <= (n + 1) / len(constellation):
@@ -100,11 +100,11 @@ for k in range(5):
     elif k==1:
         plt.semilogy(snr_db,ber,marker='o',label='MMSE')
     elif k==2:
-        plt.semilogy(snr_db,ber,marker='o',label='MRC(1X2) (theory)')
+        plt.semilogy(snr_db,ber,marker='o',label='MRC(1x2) for BPSK (theory)')
     elif k==3:
-        plt.semilogy(snr_db,ber,marker='o',label='SISO(BPSK) (theory-formula1)')
+        plt.semilogy(snr_db,ber,marker='o',label='SISO for BPSK (theory-formula1)')
     elif k==4:
-        plt.semilogy(snr_db,ber,marker='o',label='SISO(BPSK) (theory-formula2)')
+        plt.semilogy(snr_db,ber,marker='o',label='SISO for BPSK (theory-formula2)')
 plt.legend()
 plt.ylabel('ber')
 plt.xlabel('snr (Eb/No) dB')

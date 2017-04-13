@@ -47,7 +47,7 @@ for k in range(4):
             #因為沒有像space-time coding 一樣重複送data，所以Eb不會再變大
             No = Eb / snr[i]
 
-            for m in range(Nt):  # 接收端一次送出Nt個不同symbol
+            for m in range(Nt):  # 傳送端一次送出Nt個不同symbol
                 b = np.random.random()  # 產生一個 (0,1) uniform 分布的隨機變數
                 for n in range(len(constellation)):
                     if b <= (n+1)/len(constellation):
