@@ -229,7 +229,7 @@ for k in range(8):#總共有SISO、SISO theory、Alamouti(2x1)、Alamouti(2x1) t
     elif k==7:
         plt.semilogy(snr_db, ber, marker='o', linestyle='-', label="MRC(1x2) theory for BPSK")
 plt.ylabel("BER")
-plt.xlabel("SNR(db)")
+plt.xlabel("Eb/No , dB")
 plt.grid(True,which='both')
 plt.legend()
 plt.show()

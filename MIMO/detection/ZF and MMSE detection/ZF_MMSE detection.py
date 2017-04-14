@@ -34,14 +34,14 @@ for k in range(5):
         # 因為沒有像space-time coding 一樣重複送data，所以Eb不會再變大
         No = Eb / snr[i]                    # 最後決定No
 
-        if k==2:# MRC(1x2) (theory)
+        if k==2:# MRC(1x2) for BPSK (theory)
             ber[i] = 1 / 2 - 1 / 2 * np.power(1 + 1 / snr[i], -1 / 2)
             ber[i] = ber[i] * ber[i] * (1 + 2 * (1 - ber[i]))
             continue
-        elif k==3:# SISO(BPSK) (theory)
+        elif k==3:# SISO for BPSK (theory)
             ber[i] = 1 / 2 - 1 / 2 * np.power(1 + 1 / snr[i], -1 / 2)
             continue
-        elif k==4:# SISO(BPSK) (theory)
+        elif k==4:# SISO for BPSK (theory)
             ber[i] = 1/2*(1-np.sqrt(snr[i]/(snr[i]+1)))
             continue
 
