@@ -22,10 +22,10 @@ for k in range(4):
     for i in range(len(snr)):
         error = 0
         total = 0
-        if k == 0:  # SISO theory
+        if k == 0:  # SISO for BPSK theory
             ber[i] = 1/2 - 1/2*np.power(1+1/snr[i], -1/2)
             continue
-        elif k ==1 : # MRC (1x2) theroy
+        elif k ==1 : # MRC (1x2) for BPSK theroy
             ber[i] = 1/2 - 1/2*np.power(1+1/snr[i], -1/2)
             ber[i] = ber[i]*ber[i]*(1+2*(1-ber[i]))
             continue
@@ -52,6 +52,7 @@ for k in range(4):
                 for n in range(len(constellation)):
                     if b <= (n+1)/len(constellation):
                         symbol[m] = constellation[n]
+                        break
 
             # 先決定MIMO的通道矩陣
             for m in range(Nr):

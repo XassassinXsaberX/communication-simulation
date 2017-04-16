@@ -12,6 +12,7 @@ for i in range(len(snr)):
     snr_db[i] = 2*i
     snr[i] = np.power(10,snr_db[i]/10)
 
+constellation = [-1, 1] #決定星座點的集合
 
 #這裡採用 Nt x Nr 的MIMO系統，所以通道矩陣為 Nr x Nt
 H = [[0j]*Nt for i in range(Nr)]
@@ -22,28 +23,32 @@ y = [0]*Nr  #接收端的向量
 for k in range(6):
     for i in range(len(snr)):
         error = 0
-        No = 1/snr[i]  #每個symbol只送一次能量
-        # 已知 SNR = Eb / No
-        # 令symbol 能量 Es =1 。採用BPSK調變，所以Eb = Es = 1
-        # 因為一次只送一個symbol(即沒有重複送相同data)所以Eb = Es = 1
-        # 所以 No = 1 / SNR
-        if k==2:# MRC(1x2) (theory)
+        if k==2:# MRC(1x2) for BPSK (theory)
             ber[i] = 1 / 2 - 1 / 2 * np.power(1 + 1 / snr[i], -1 / 2)
             ber[i] = ber[i] * ber[i] * (1 + 2 * (1 - ber[i]))
             continue
-        elif k==3:# SISO(BPSK) (theory)
+        elif k==3:# SISO for BPSK (theory)
             ber[i] = 1 / 2 - 1 / 2 * np.power(1 + 1 / snr[i], -1 / 2)
             continue
 
+        K = int(np.log2(len(constellation)))  # 代表一個symbol含有K個bit
+        # 接下來要算平均一個symbol有多少能量
+        energy = 0
+        for m in range(len(constellation)):
+            energy += abs(constellation[m]) ** 2
+        Es = energy / len(constellation)  # 平均一個symbol有Es的能量
+        Eb = Es / K  # 平均一個bit有Eb能量
+        # 因為沒有像space-time coding 一樣重複送data，所以Eb不會再變大
+        No = Eb / snr[i]
 
         for j in range(N):
-            #決定要送哪些symbol (採用BPSK調變)
-            for m in range(Nt): #接收端一次送出Nt個不同symbol
+
+            for m in range(Nt):  # 傳送端一次送出Nt個不同symbol
                 b = np.random.random()  # 產生一個 (0,1) uniform 分布的隨機變數
-                if b >= 0.5:
-                    symbol[m] = 1
-                else:
-                    symbol[m] = -1
+                for n in range(len(constellation)):
+                    if b <= (n+1)/len(constellation):
+                        symbol[m] = constellation[n]
+                        break
 
             #先決定MIMO的通道矩陣
             H = [[0j] * Nt for i in range(Nr)]
@@ -63,35 +68,48 @@ for k in range(6):
             if k==0:#執行ZF detection
                 #決定ZE 的weight matrix
                 W = ((H.getH()*H)**(-1))*H.getH()  #W為 Nt x Nr 矩陣
+
                 receive = [0]*Nt
-                # W矩陣乘上y向量即可得到估計出來的傳送symbol組成的向量
+                # W矩陣乘上y向量即可得到估計出來的傳送symbol組成的receive向量
                 for m in range(Nt):
                     for n in range(Nr):
                         receive[m] += W[m,n]*y[n]
 
                 for m in range(Nt):
-                    if abs(receive[m]-1) < abs(receive[m]+1):
-                        receive_symbol = 1
-                    else:
-                        receive_symbol = -1
-                    if symbol[m] != receive_symbol:
-                        error += 1
+                    # 接收端利用Maximum Likelihood來detect symbol
+                    min_distance = 10 ** 9
+                    for n in range(len(constellation)):
+                        if abs(constellation[n] - receive[m]) < min_distance:
+                            detection = constellation[n]
+                            min_distance = abs(constellation[n] - receive[m])
+                    # 我們會將傳送端送出的第m個symbol，detect出來，結果為detection
+
+                    if symbol[m] != detection:
+                        error += 1  # error為symbol error 次數
+
+
             elif k==1:#執行MMSE detection
                 #決定MMSE 的weight matrix
                 W = ((H.getH()*H + 1/snr[i]*np.identity(Nt))**(-1))*H.getH()  #W為 Nt x Nr 矩陣
+
                 receive = [0]*Nt
-                #W矩陣乘上y向量即可得到估計出來的傳送symbol組成的向量
+                #W矩陣乘上y向量即可得到估計出來的傳送symbol組成的receive向量
                 for m in range(Nt):
                     for n in range(Nr):
                         receive[m] += W[m,n]*y[n]
 
                 for m in range(Nt):
-                    if abs(receive[m]-1) < abs(receive[m]+1):
-                        receive_symbol = 1
-                    else:
-                        receive_symbol = -1
-                    if symbol[m] != receive_symbol:
-                        error += 1
+                    # 接收端利用Maximum Likelihood來detect symbol
+                    min_distance = 10 ** 9
+                    for n in range(len(constellation)):
+                        if abs(constellation[n] - receive[m]) < min_distance:
+                            detection = constellation[n]
+                            min_distance = abs(constellation[n] - receive[m])
+                    # 我們會將傳送端送出的第m個symbol，detect出來，結果為detection
+
+                    if symbol[m] != detection:
+                        error += 1  # error為symbol error 次數
+
             elif k == 4:  # 執行ZF - SIC detection
                 # SIC detection的中心思想為
                 # 先利用W的第一列向量和y向量估計出x1，再將y向量減去(h1向量 乘 symbol x1) 得到y1向量，接下來更新W
@@ -103,11 +121,16 @@ for k in range(6):
                     W = ((H.getH() * H) ** (-1)) * H.getH()
                     for n in range(Nr):#估計第m個symbol
                         receive[m] += W[0,n] * y[n]
+
                     #一定要將估計出來的symbol 把他映射到最接近的星座點，否則SIC會失效，其錯誤率變回ZF
-                    if abs(receive[m]-1) < abs(receive[m]+1):
-                        receive[m] = 1
-                    else:
-                        receive[m] = -1
+                    min_distance = 10 ** 9
+                    for n in range(len(constellation)):
+                        if abs(constellation[n] - receive[m]) < min_distance:
+                            detection = constellation[n]
+                            min_distance = abs(constellation[n] - receive[m])
+                    # 我們會將傳送端送出的第m個symbol，detect出來，結果為detection
+                    receive[m] = detection
+
                     # 每估計出第1個symbol，就將他乘上對應的通道矩陣的行向量，再被y向量減去，以此更新y向量
                     for n in range(Nr):
                         y[n] -= H[n,0]*receive[m]
@@ -124,6 +147,7 @@ for k in range(6):
                 for m in range(Nt):
                     if symbol[m] != receive[m]:
                         error += 1
+
             elif k == 5:  # 執行ZF - SIC - sort detection
                 # SIC-sort detection的中心思想與SIC detection相同
                 # 唯一不同的地方在於symbol的檢測順序部再依照原本順序，而是根據通道來決定順序
@@ -156,11 +180,16 @@ for k in range(6):
                     #依序檢測第 norm[m][1] 信號
                     for n in range(Nr):
                         receive[norm[m][1]] += W[0,n]*y[n]
+
                     # 一定要將估計出來的symbol 把他映射到最接近的星座點，否則SIC會失效，其錯誤率變回ZF
-                    if abs(receive[norm[m][1]]-1) < abs(receive[norm[m][1]]+1):
-                        receive[norm[m][1]] = 1
-                    else:
-                        receive[norm[m][1]] = -1
+                    min_distance = 10 ** 9
+                    for n in range(len(constellation)):
+                        if abs(constellation[n] - receive[norm[m][1]]) < min_distance:
+                            detection = constellation[n]
+                            min_distance = abs(constellation[n] - receive[norm[m][1]])
+                    # 我們會將傳送端送出的第norm[m][1]個symbol，detect出來，結果為detection
+                    receive[norm[m][1]] = detection
+
                     # 每估計出第norm[m][1]個symbol，就將他乘上對應的通道矩陣的行向量，再被y向量減去，以此更新y向量
                     for n in range(Nr):
                         y[n] -= receive[norm[m][1]]*H[n,0]
@@ -186,15 +215,14 @@ for k in range(6):
     elif k==1:
         plt.semilogy(snr_db,ber,marker='o',label='MMSE')
     elif k==2:
-        plt.semilogy(snr_db,ber,marker='o',label='MRC(1X2) (theory)')
+        plt.semilogy(snr_db,ber,marker='o',label='MRC(1x2) for BPSK (theory)')
     elif k==3:
-        plt.semilogy(snr_db,ber,marker='o',label='SISO(BPSK) (theory-formula1)')
+        plt.semilogy(snr_db,ber,marker='o',label='SISO for BPSK (theory-formula1)')
     elif k==4:
-        plt.semilogy(snr_db, ber, marker='o', label='ZF-SIC ')
+        plt.semilogy(snr_db, ber, marker='o', label='ZF-SIC')
     elif k==5:
         plt.semilogy(snr_db, ber, marker='o', label='ZF-SIC-sort')
-    #elif k==6:
-    #    plt.semilogy(snr_db, ber, marker='o', label=' MMSE-SIC-sort')
+
 plt.legend()
 plt.ylabel('ber')
 plt.xlabel('snr (Eb/No) dB')

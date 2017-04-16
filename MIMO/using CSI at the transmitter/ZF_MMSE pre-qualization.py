@@ -22,7 +22,7 @@ for k in range(6):
         for m in range(len(constellation)):
             energy += abs(constellation[m]) ** 2
         Es = energy / len(constellation)  # 平均一個symbol有Es的能量
-        Eb = Es / K  # 平均一個bit有Eb能量
+        Eb = Es / K                       # 平均一個bit有Eb能量
         # 因為沒有像space-time coding 一樣重複送data，所以Eb不會再變大
 
         if k == 0:# MRC(1x2) for BPSK (theory)
@@ -43,7 +43,6 @@ for k in range(6):
             symbol = [0] * Nr  # 雖然接收端有Nt根天線，但實際上一次只會送Nr個，且Nr < Nt
             y = [0] * Nr       # 接收端的向量
             No = Eb * Nt/Nr / snr[i]
-            #No = Eb / snr[i]
 
         elif k == 4 or k==5:#equalization
             # 注意做equalization時 Nt <= Nr
@@ -71,7 +70,7 @@ for k in range(6):
                 for n in range(Nt):
                     H[m, n] = 1 / np.sqrt(2) * np.random.randn() + 1j / np.sqrt(2) * np.random.randn()
 
-            if k == 2 or k == 3:# pre equalization
+            if k == 2 or k == 3:# pre-equalization
                 # 首先要決定weight matrix W
                 if k == 2:    # ZF pre-equalization
                     W = H.getH() * (H*H.getH()).I
@@ -95,7 +94,10 @@ for k in range(6):
                         y[m] += H[m, n] * codeword[n]
                     y[m] += np.sqrt(No / 2) * np.random.randn() + 1j * np.sqrt(No / 2) * np.random.randn()
 
-                #接收端收到y向量後可以直接解調
+                #接收端收到y向量後先除以beta後，才可以直接解調
+                for m in range(Nr):
+                    y[m] /= beta
+
                 for m in range(Nr):
                     # 接收端利用Maximum Likelihood來detect symbol
                     min_distance = 10 ** 9
@@ -136,7 +138,7 @@ for k in range(6):
                     # 決定MMSE 的weight matrix
                     W = ((H.getH() * H + 1 / snr[i] * np.identity(Nt)).I) * H.getH()  # W為 Nt x Nr 矩陣
 
-                # receive向量 = W矩陣 * y向量
+                # 接收端做equalization : receive向量 = W矩陣 * y向量
                 receive = [0] * Nt
                 for m in range(Nt):
                     for n in range(Nr):
