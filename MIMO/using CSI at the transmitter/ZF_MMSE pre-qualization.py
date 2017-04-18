@@ -40,7 +40,7 @@ for k in range(6):
             # 這裡採用 Nt x Nr 的MIMO系統，所以通道矩陣為 Nr x Nt
             H = [[0j] * Nt for i in range(Nr)]
             H = np.matrix(H)
-            symbol = [0] * Nr  # 雖然接收端有Nt根天線，但實際上一次只會送Nr個，且Nr < Nt
+            symbol = [0] * Nr  # 雖然接收端有Nt根天線，但實際上一次只會送Nr個，且Nr <= Nt
             y = [0] * Nr       # 接收端的向量
             No = Eb * Nt/Nr / snr[i]
 
