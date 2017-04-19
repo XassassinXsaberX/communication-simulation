@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 snr_db = [0]*10
 snr = [0]*10
 ber = [0]*10
-N = 1000000 #執行N次來找錯誤率
+N = 10000000 #執行N次來找錯誤率
 for i in range(10):
     snr_db[i] = 2*i
     snr[i] = np.power(10,snr_db[i]/10)
@@ -125,8 +125,8 @@ for k in range(4):#總共有Alamouti(2x1) theory、MRC(1x2) theory、Alamouti(2x
                     if x[m] != detection:
                         error += 1  # error為symbol error 次數
 
-            elif k==3: #Alamouti(2x1) precoding  --->  注意他是用4跟天線來發送的...
-                No = 4 * Eb / snr[i]            # 經過數學推導後我們會發現採用該方案時，平均一個symbol送了4Es，所以平均一個bit送了4Eb
+            elif k==3: #Alamouti(2x1) precoding  --->  注意他是用4根天線來發送的...
+                No = 2 * Eb / snr[i]            # 經過數學推導後我們會發現採用該方案時，平均一個symbol送了2Es，所以平均一個bit送了2Eb
                 x = [0] * 2                     # 要傳送的向量
                 X = [[0] * 2 for m in range(2)] # 經過space-time coding 後的傳送symbol matrix
 
