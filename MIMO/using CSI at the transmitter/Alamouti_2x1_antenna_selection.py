@@ -78,7 +78,7 @@ for k in range(4):#總共有Alamouti(2x1) BPSK theory、MRC for BPSK theory (1x2
                     H_norm_2[m][0] += abs(H[m])**2
                 H_norm_2.sort(reverse=True,key = lambda cust: cust[0])
 
-                # 排序完後，我們選norm平方較大的前兩個column vector組成新的channel vector (也就是選那兩個天線來送data)
+                # 排序完後，我們選norm平方較大的前兩個column vector組成新的channel matrix (也就是選那兩個天線來送data)
                 index = [H_norm_2[0][1],H_norm_2[1][1]]
                 index.sort() # 若h3的norm平方 > h2的norm平方，則新的矩陣應為[ h2 , h3 ]而不是[ h3 , h2 ]，所以我們才要對前兩個index進行由小大到的排序
                 H_new = [0]*2

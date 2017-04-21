@@ -40,9 +40,9 @@ for k in range(6):
             # 這裡採用 Nt x Nr 的MIMO系統，所以通道矩陣為 Nr x Nt
             H = [[0j] * Nt for i in range(Nr)]
             H = np.matrix(H)
-            symbol = [0] * Nr  # 雖然接收端有Nt根天線，但實際上一次只會送Nr個，且Nr <= Nt
-            y = [0] * Nr       # 接收端的向量
-            No = Eb * Nt/Nr / snr[i]
+            symbol = [0] * Nr           # 雖然傳送端有Nt根天線，但實際上一次只會送Nr個symbol，且Nr <= Nt
+            y = [0] * Nr                # 接收端的向量
+            No = Eb * Nt/Nr / snr[i]    # 平均一個symbol會送Nt/Nr * Es，所以平均一個bit會送Nb/Nr * Eb，這是數學推導的結果
 
         elif k == 4 or k==5:#equalization
             # 注意做equalization時 Nt <= Nr
