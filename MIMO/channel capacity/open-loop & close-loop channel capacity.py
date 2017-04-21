@@ -48,8 +48,8 @@ for k in range(2):
 
             elif k == 1: #傳送端已知CSI，所以動態分配能量給每根虛擬SISO天線(eigenmode)
                 #先找出channel matrix的奇異值
-                u,s,v = np.linalg.svd(H)
-                # u、v 為unitary matrix，s為一個list，裡面存放奇異值
+                u,s,v_H = np.linalg.svd(H)
+                # u、v_H 為unitary matrix，s為一個list，裡面存放奇異值
 
                 #接下來用 r 來紀錄有多少個非0特徵值，並把它記錄下來
                 r = 0
