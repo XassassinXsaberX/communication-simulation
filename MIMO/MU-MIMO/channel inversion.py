@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 
 # 模擬MU-MIMO downlink channel
 # 所以BS為傳送端(有Nb根天線)，使用者為接收端
-# 共k_user個使用者，每個使用者有1根天線，所以接收端共有k_user跟虛擬天線
+# 共k_user個使用者，每個使用者有Nm根天線，所以接收端共有k_user*Nm根虛擬天線
 
 snr_db = [0]*12
 snr = [0]*12
@@ -41,13 +41,11 @@ for k in range(4):
             ber[i] = 1 / 2 - 1 / 2 * np.power(1 + 1 / snr[i], -1 / 2)
             continue
 
-        # 注意做pre-equalization時，傳送端天線數Nb >= 虛擬接收端天線數( Nm * select_user )
-        # 所以我們會從k_user個使用者中，選select_user個擁有較佳通道的使用者來送data
 
         # 這裡採用 Nb x ( Nm*select_user ) 的MIMO系統，所以通道矩陣為 ( Nm * select_user ) x Nb
         H = [[0j] * Nb for m in range(Nm*select_user)]
         H = np.matrix(H)
-        symbol = [0] * (Nm*select_user)         # 雖然BS傳送端有Nb根天線，但實際上一次只會送select_user個symbol，且select_user <= Nb
+        symbol = [0] * (Nm*select_user)         # 雖然BS傳送端有Nb根天線，但實際上一次只會送Nm*select_user個symbol，且Nm*select_user <= Nb
         y = [0] * (Nm*select_user)              # 接收端的向量
         No = Eb * Nb/(Nm*select_user) / snr[i]  # 平均一個symbol會送Nb/(Nm*select_user) * Es，所以平均一個bit會送Nb/(Nm*select_user) * Eb，這是數學推導的結果
 
@@ -64,6 +62,9 @@ for k in range(4):
             for m in range(k_user*Nm):
                 for n in range(Nb):
                     H_DL[m][n] = 1 / np.sqrt(2) * np.random.randn() + 1j / np.sqrt(2) * np.random.randn()
+
+            # 注意做pre-equalization時，傳送端天線數Nb >= 虛擬接收端天線數( Nm * select_user )
+            # 所以我們會從k_user個使用者中，選select_user個擁有較佳通道的使用者來送data
 
             # 接下來找每個row channel matrix的frobenius norm平方。若norm平方越大，代表BS到該使用者的channel狀況越好
             channel_norm_2 = [[0,0] for m in range(k_user)]# 第一個變數用來存放row matrix的norm平方，第二個變數用來紀錄這是哪一個row matrix(待會排序完後會用到)
