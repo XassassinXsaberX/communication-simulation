@@ -15,7 +15,17 @@ for i in range(len(snr)):
 # 先決定16QAM的16個星座點
 constellation =  [1+1j,1+3j,3+1j,3+3j,-1+1j,-1+3j,-3+1j,-3+3j,-1-1j,-1-3j,-3-1j,-3-3j,1-1j,1-3j,3-1j,3-3j]
 
-for k in range(3):
+K = int(np.log2(len(constellation)))  # 代表一個symbol含有K個bit
+# 接下來要算平均一個symbol有多少能量
+# 先將所有可能的星座點能量全部加起來
+energy = 0
+for m in range(len(constellation)):
+    energy += abs(constellation[m]) ** 2
+Es = energy / len(constellation)      # 平均一個symbol有Es的能量
+Eb = Es / K                           # 平均一個bit有Eb能量
+
+
+for k in range(4):
     for i in range(len(snr_db)):
         if k == 0: #16QAM theory only consider AWGN
             # theroy 1
@@ -26,9 +36,17 @@ for k in range(3):
             #ber[i] += 1/2*(1/2)*math.erfc(3*np.sqrt(snr[i]*4/10))
             #ber[i] -= 1/4*(1/2)*math.erfc(5*np.sqrt(snr[i]*4/10))
             continue
-        elif k == 1:#16-psk theory
+
+        elif k == 1: #16-psk theory
             ber[i] = 1/4*math.erfc(np.sqrt(4*snr[i])*np.sin(np.pi/16))
             continue
+
+        elif k == 3: #16QAM theory (rayleigh)
+            a = 2 * (1 - 1 / K) / np.log2(K)
+            b = 6 * np.log2(K) / (K * K - 1)
+            rn = b * snr[i] / 2
+            ber[i] = 1 / 2 * a * (1 - np.sqrt(rn / (rn + 1)))
+
         error = 0
 
         K = int(np.log2(len(constellation)))  # 代表一個symbol含有K個bit
@@ -85,7 +103,9 @@ for k in range(3):
     if k == 1:
         plt.semilogy(snr_db, ber, marker='o', label='16-psk (theory only AWGN)')
     if k == 2:
-        plt.semilogy(snr_db, ber, marker='o', label='16QAM (simulation rayleigh fading)')
+        plt.semilogy(snr_db, ber, marker='o', label='16QAM (simulation for rayleigh fading)')
+    if k == 3:
+        plt.semilogy(snr_db, ber, marker='o', label='16QAM (theory for rayleigh fading)')
 
 plt.xlabel('Eb/No , dB')
 plt.ylabel('BER')
