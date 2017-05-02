@@ -4,9 +4,9 @@ import math
 
 #reference : http://www.dsplog.com/2008/08/26/ofdm-rayleigh-channel-ber-bpsk/
 
-snr_db = [0]*15
-snr = [0]*15
-ber = [0]*15
+snr_db = [0]*13
+snr = [0]*len(snr_db)
+ber = [0]*len(snr_db)
 N = 100000              #執行N次來找錯誤率
 Nfft = 64               #總共有多少個sub channel
 X = [0]*64              #從頻域送出64
@@ -16,6 +16,17 @@ n_guard = 16            #經過取樣後有n_guard個點屬於guard interval，N
 L = 10                  #假設有L條path
 h = [0]*L               #每個元素代表L條path各自的impulse response  (因為在一個OFDM symbol period內為常數，所以很明顯是非時變通道)
 
+constellation = [1+1j, 1-1j, -1+1j, -1-1j] # 決定QPSK星座點
+#constellation = [-1,1]
+
+K = int(np.log2(len(constellation)))  # 代表一個symbol含有K個bit
+# 接下來要算平均一個symbol有多少能量
+# 先將所有可能的星座點能量全部加起來
+energy = 0
+for m in range(len(constellation)):
+    energy += abs(constellation[m]) ** 2
+Es = energy / len(constellation)      # 從頻域的角度來看，平均一個symbol有Es的能量
+Eb = Es / K                           # 從頻域的角度來看，平均一個bit有Eb能量
 
 #當ofdm symbol發生delay一個單位時間，相當於一個往右shift
 def shift(x):
@@ -35,23 +46,25 @@ for k in range(2):
         if k==0 : # SISO - rayleigh (BPSK) (theory)
             ber[i] = 1/2*(1-np.sqrt(snr[i]/(snr[i]+1)))
             continue
+        elif k==2: # SISO - only awgn (BPSK) (theory)
+            ber[i] = 1/2*math.erfc(np.sqrt(snr[i]))
+            continue
         for j in range(N):
             if k==1 :
                 #決定所有sub-channel要送哪些信號
                 for m in range(64):
                     if (m>2 and m<29) or (m>34 and m<61):
-                        b = np.random.random()
-                        #採用bpsk調變
-                        if b > 0.5:
-                            X[m] = 1
-                        else:
-                            X[m] = -1
+                        b = np.random.random()  # 產生一個 (0,1) uniform 分布的隨機變數，來決定要送哪個symbol
+                        for n in range(len(constellation)):
+                            if b <= (n + 1) / len(constellation):
+                                X[m] = constellation[n]
+                                break
                     else:
                         X[m] = 0
 
                 # 將頻域的Nfft個 symbol 做 ifft 轉到時域
-                x = np.fft.ifft(X) * Nfft / np.sqrt(Nusc)
-                # 乘上Nfft / np.sqrt(Nusc)可將一個OFDM symbol的總能量normalize成 1* Nfft
+                x = np.fft.ifft(X) * Nfft / np.sqrt(Nusc) / np.sqrt(Es)
+                # 乘上Nfft / np.sqrt(Nusc) / np.sqrt(Es)可將一個OFDM symbol的總能量normalize成 1* Nfft  (從時域的角度來看)
                 # 你可以這樣想，送了 Nusc = 52 個symbol，總能量卻為 Nfft = 64，所以平均每symbol花了(64 / 52)的能量-----------------------------------------------------------(式1)
                 # 而在時域總共有64個取樣點，所以平均每個取樣點的能量為1
 
@@ -97,11 +110,11 @@ for k in range(2):
                 # 以上為傳送端
                 #
                 # 現在將傳送出去的OFDM symbol加上雜訊
-                # snr[i] 代表的是平均每個bit的能量
-                Eb = 1 * (Nfft / Nusc) * ((Nfft + n_guard) / Nfft)
+                # Eb代表的是平均每個bit的能量
+                Eb = 1/K * (Nfft / Nusc) * ((Nfft + n_guard) / Nfft)
                 # 若原本一個symbol 能量Es = 1，現在變成1 * (Nfft / Nusc) 可見(式1) ，現在一個取樣點平均能量為1
                 # 若原本一個取樣點平均能量為1，加上cp後變成要乘上((Nfft+n_guard) / Nfft)
-                # 因為採用bpsk調變，所以Es = Eb
+                # 因為一個symbol含K個bit (所以Eb = Es / K)，這就是為何要除上K
                 No = Eb / snr[i]
                 for m in range(Nfft + n_guard):
                     y[m] += np.sqrt(No / 2) * np.random.randn() + 1j * np.sqrt(No / 2) * np.random.randn()
@@ -118,28 +131,37 @@ for k in range(2):
                 y = y_new   #現在y已經去除OFDM的cyclic prefix
 
                 for m in range(len(y)):
-                    y[m] = y[m] * np.sqrt(Nusc) / Nfft #因為前面x向量有乘上Nfft / np.sqrt(Nusc)，所以現在要變回來
+                    y[m] = y[m] * np.sqrt(Es) * np.sqrt(Nusc) / Nfft  # 因為前面x向量有乘上Nfft / np.sqrt(Nusc) / np.sqrt(Es)，所以現在要變回來
                 Y = np.fft.fft(y) #現在將y轉到頻域，變成Y
 
                 #進行detection，並計算錯多少個點
                 #因為已知通道的頻率響應為H，所以可以藉由Y[m] / H[m] 來解調
                 for m in range(Nfft):
                     if (m>2 and m<29) or (m>34 and m<61):
-                        if abs((Y[m]/H[m])-1) < abs((Y[m]/H[m])+1):
-                            Y[m] = 1
-                        else:
-                            Y[m] = -1
-                        if Y[m] != X[m]:
-                            error += 1
+                        # 用Maximum Likelihood來detect symbol
+                        min_distance = 10 ** 9
+                        for n in range(len(constellation)):
+                            if abs(constellation[n] - Y[m]/H[m]) < min_distance:
+                                detection = constellation[n]
+                                min_distance = abs(constellation[n] - Y[m]/H[m])
+                        if detection != X[m]: #QPSK的symbol發生錯誤時
+                            # 要確實的找出QPSK錯幾個bit，而不是找出錯幾個symbol，來估計BER
+                            if abs(detection.real - X[m].real) == 2:
+                                error += 1
+                            elif abs(detection.imag - X[m].imag) == 2:
+                                error += 1
+                            #error += 1
                     else:
                         continue
 
-        ber[i] = error / (Nusc*N)
+        ber[i] = error / (Nusc * N * K)  # 分母乘上K是因為一個symbol含有K個bit
 
     if k==0 :
-        plt.semilogy(snr_db,ber,marker='o',label='rayleigh-theory')
+        plt.semilogy(snr_db,ber,marker='o',label='rayleigh-theory for BPSK')
     elif k==1:
-        plt.semilogy(snr_db,ber,marker='o',label='rayleigh-simulation')
+        plt.semilogy(snr_db,ber,marker='o',label='rayleigh-simulation for QPSK (multipath = {0})'.format(L))
+    elif k==2:
+        plt.semilogy(snr_db,ber,marker='o',label='only AWGN-theory for BPSK')
 
 plt.xlabel('Eb/No , dB')
 plt.ylabel('BER')
