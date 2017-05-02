@@ -32,14 +32,14 @@ for j in range(3):
         a1[i] = 10*np.log(a1[i])
 
     plt.figure(r'$\omega_m=2*{0}\pi\/\/\/(path1)$'.format(fd))
-    plt.title(r'$\omega_m=2*{0}\pi\/\/\/(path1)$'.format(fd))
+    plt.title(r'$\omega_m=2\cdot{0}\pi(rad/s)\/\/\/or\/\/\/fd={0}(Hz)\/\/\/(path1)$'.format(fd))
     plt.xlabel('time (sec)')
     plt.ylabel('Rayleigh envelop in dB')
     plt.plot(t,a0)
     plt.xlim(0, 0.25)
 
     plt.figure(r'$\omega_m = 2*{0}\pi\/\/\/(path2)$'.format(fd))
-    plt.title(r'$\omega_m = 2*{0}\pi\/\/\/(path2)$'.format(fd))
+    plt.title(r'$\omega_m = 2\cdot{0}\pi(rad/s)\/\/\/or\/\/\/fd={0}(Hz)\/\/\/(path2)$'.format(fd))
     plt.xlabel('time (sec)')
     plt.ylabel('Rayleigh envelop in dB')
     plt.plot(t,a1)
