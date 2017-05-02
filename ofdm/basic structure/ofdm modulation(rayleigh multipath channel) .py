@@ -4,10 +4,10 @@ import math
 
 #reference : http://www.dsplog.com/2008/08/26/ofdm-rayleigh-channel-ber-bpsk/
 
-snr_db = [0]*13
+snr_db = [0]*15
 snr = [0]*len(snr_db)
 ber = [0]*len(snr_db)
-N = 100000              #執行N次來找錯誤率
+N = 10000              #執行N次來找錯誤率
 Nfft = 64               #總共有多少個sub channel
 X = [0]*64              #從頻域送出64
 Nusc = 52               #總共有多少sub channel 真正的被用來傳送symbol，假設是sub-channel : 0,1,2,29,30,31及32,33,34,61,62,63不用來傳送symbol
@@ -16,8 +16,12 @@ n_guard = 16            #經過取樣後有n_guard個點屬於guard interval，N
 L = 10                  #假設有L條path
 h = [0]*L               #每個元素代表L條path各自的impulse response  (因為在一個OFDM symbol period內為常數，所以很明顯是非時變通道)
 
-constellation = [1+1j, 1-1j, -1+1j, -1-1j] # 決定QPSK星座點
-#constellation = [-1,1]
+#constellation = [1+1j, 1-1j, -1+1j, -1-1j] # 決定QPSK星座點
+#constellation_name = 'QPSK'
+constellation =  [1+1j,1+3j,3+1j,3+3j,-1+1j,-1+3j,-3+1j,-3+3j,-1-1j,-1-3j,-3-1j,-3-3j,1-1j,1-3j,3-1j,3-3j] # 決定16-QAM的16個星座點
+constellation_name = '16-QAM'
+#constellation = [-1,1] # 決定BPSK星座點
+#constellation_name = 'BPSK'
 
 K = int(np.log2(len(constellation)))  # 代表一個symbol含有K個bit
 # 接下來要算平均一個symbol有多少能量
@@ -43,11 +47,14 @@ for i in range(len(snr_db)):
 for k in range(2):
     for i in range(len(snr)):
         error = 0
-        if k==0 : # SISO - rayleigh (BPSK) (theory)
+        if k==0 and (constellation_name == 'BPSK' or constellation_name == 'QPSK'): # SISO - rayleigh (BPSK) (theory)
             ber[i] = 1/2*(1-np.sqrt(snr[i]/(snr[i]+1)))
             continue
-        elif k==2: # SISO - only awgn (BPSK) (theory)
-            ber[i] = 1/2*math.erfc(np.sqrt(snr[i]))
+        elif k==0 and constellation_name == '16-QAM': # SISO - rayleigh (16-QAM) (theory)
+            a = 2 * (1 - 1 / K) / np.log2(K)
+            b = 6 * np.log2(K) / (K * K - 1)
+            rn = b * snr[i] / 2
+            ber[i] = 1 / 2 * a * (1 - np.sqrt(rn / (rn + 1)))
             continue
         for j in range(N):
             if k==1 :
@@ -144,24 +151,40 @@ for k in range(2):
                             if abs(constellation[n] - Y[m]/H[m]) < min_distance:
                                 detection = constellation[n]
                                 min_distance = abs(constellation[n] - Y[m]/H[m])
-                        if detection != X[m]: #QPSK的symbol發生錯誤時
-                            # 要確實的找出QPSK錯幾個bit，而不是找出錯幾個symbol，來估計BER
-                            if abs(detection.real - X[m].real) == 2:
+
+                        if detection != X[m]:  # 如果這個sub channel發生symbol error
+                            # 不同的symbol調變，就要用不同的方法從symbol error中找bit error
+                            if constellation_name == 'QPSK':#QPSK的symbol發生錯誤時
+                                # 要確實的找出QPSK錯幾個bit，而不是找出錯幾個symbol，來估計BER
+                                if abs(detection.real - X[m].real) == 2:
+                                    error += 1
+                                if abs(detection.imag - X[m].imag) == 2:
+                                    error += 1
+                            elif constellation_name == '16-QAM':#16-QAM的symbol發生錯誤時
+                                # 要確實的找出16-QAM錯幾個bit，而不是找出錯幾個symbol，來估計BER
+                                if abs(detection.real - X[m].real) == 2 or abs(detection.real - X[m].real) == 6:
+                                    error += 1
+                                elif abs(detection.real - X[m].real) == 4:
+                                    error += 2
+                                if abs(detection.imag - X[m].imag) == 2 or abs(detection.imag - X[m].imag) == 6:
+                                    error += 1
+                                elif abs(detection.imag - X[m].imag) == 4:
+                                    error += 2
+                            elif constellation_name == 'BPSK':
                                 error += 1
-                            elif abs(detection.imag - X[m].imag) == 2:
-                                error += 1
-                            #error += 1
                     else:
                         continue
 
         ber[i] = error / (Nusc * N * K)  # 分母乘上K是因為一個symbol含有K個bit
 
-    if k==0 :
-        plt.semilogy(snr_db,ber,marker='o',label='rayleigh-theory for BPSK')
+    if k==0 and (constellation_name == 'BPSK' or constellation_name == 'QPSK'):
+        plt.semilogy(snr_db,ber,marker='o',label='rayleigh-theory for BPSK or QPSK (SISO)')
+    elif k==0 and constellation_name == '16-QAM':
+        plt.semilogy(snr_db,ber,marker='o',label='rayleigh-approximation for 16-QAM (SISO)')
     elif k==1:
-        plt.semilogy(snr_db,ber,marker='o',label='rayleigh-simulation for QPSK (multipath = {0})'.format(L))
-    elif k==2:
-        plt.semilogy(snr_db,ber,marker='o',label='only AWGN-theory for BPSK')
+        plt.semilogy(snr_db,ber,marker='o',label='rayleigh-simulation for {0} (multipath = {1})'.format(constellation_name,L))
+
+
 
 plt.xlabel('Eb/No , dB')
 plt.ylabel('BER')

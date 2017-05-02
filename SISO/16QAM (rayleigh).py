@@ -46,6 +46,7 @@ for k in range(4):
             b = 6 * np.log2(K) / (K * K - 1)
             rn = b * snr[i] / 2
             ber[i] = 1 / 2 * a * (1 - np.sqrt(rn / (rn + 1)))
+            continue
 
         error = 0
 
@@ -105,7 +106,7 @@ for k in range(4):
     if k == 2:
         plt.semilogy(snr_db, ber, marker='o', label='16QAM (simulation for rayleigh fading)')
     if k == 3:
-        plt.semilogy(snr_db, ber, marker='o', label='16QAM (theory for rayleigh fading)')
+        plt.semilogy(snr_db, ber, marker='o', label='16QAM (approximation for rayleigh fading)')
 
 plt.xlabel('Eb/No , dB')
 plt.ylabel('BER')

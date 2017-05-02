@@ -134,7 +134,7 @@ for k in range(3):
                             # 要確實的找出QPSK錯幾個bit，而不是找出錯幾個symbol，來估計BER
                             if abs(detection.real - X[m].real) == 2:
                                 error += 1
-                            elif abs(detection.imag - X[m].imag) == 2:
+                            if abs(detection.imag - X[m].imag) == 2:
                                 error += 1
 
                     else:
