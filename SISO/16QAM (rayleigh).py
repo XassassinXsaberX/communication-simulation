@@ -41,7 +41,7 @@ for k in range(4):
             ber[i] = 1/4*math.erfc(np.sqrt(4*snr[i])*np.sin(np.pi/16))
             continue
 
-        elif k == 3: #16QAM theory (rayleigh)
+        elif k == 3: #16QAM approximation (rayleigh)
             a = 2 * (1 - 1 / K) / np.log2(K)
             b = 6 * np.log2(K) / (K * K - 1)
             rn = b * snr[i] / 2

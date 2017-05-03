@@ -50,7 +50,7 @@ for k in range(2):
         if k==0 and (constellation_name == 'BPSK' or constellation_name == 'QPSK'): # SISO - rayleigh (BPSK) (theory)
             ber[i] = 1/2*(1-np.sqrt(snr[i]/(snr[i]+1)))
             continue
-        elif k==0 and constellation_name == '16-QAM': # SISO - rayleigh (16-QAM) (theory)
+        elif k==0 and constellation_name == '16-QAM': # SISO - approximation (16-QAM) (theory)
             a = 2 * (1 - 1 / K) / np.log2(K)
             b = 6 * np.log2(K) / (K * K - 1)
             rn = b * snr[i] / 2

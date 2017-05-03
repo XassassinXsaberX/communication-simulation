@@ -14,7 +14,12 @@ Nusc = 52               #總共有多少sub channel 真正的被用來傳送symb
 t_sample = 5*10**(-8)   #取樣間隔
 n_guard = 16            #經過取樣後有n_guard個點屬於guard interval，Nfft個點屬於data
 
-constellation = [1+1j, 1-1j, -1+1j, -1-1j] # 決定QPSK星座點
+#constellation = [1+1j, 1-1j, -1+1j, -1-1j] # 決定QPSK星座點
+#constellation_name = 'QPSK'
+constellation =  [1+1j,1+3j,3+1j,3+3j,-1+1j,-1+3j,-3+1j,-3+3j,-1-1j,-1-3j,-3-1j,-3-3j,1-1j,1-3j,3-1j,3-3j] # 決定16-QAM的16個星座點
+constellation_name = '16-QAM'
+#constellation = [-1,1] # 決定BPSK星座點
+#constellation_name = 'BPSK'
 
 K = int(np.log2(len(constellation)))  # 代表一個symbol含有K個bit
 # 接下來要算平均一個symbol有多少能量
@@ -35,8 +40,11 @@ for k in range(3):
         if k==0 : # SISO - rayleigh (BPSK) (theory)
             ber[i] = 1/2*(1-np.sqrt(snr[i]/(snr[i]+1)))
             continue
-        elif k==2: # SISO - only awgn (BPSK) (theory)
+        elif k==2 and (constellation_name == 'BPSK' or constellation_name == 'QPSK'): # SISO - only awgn (BPSK) (theory)
             ber[i] = 1/2*math.erfc(np.sqrt(snr[i]))
+            continue
+        elif k==2 and constellation_name == '16-QAM':                                 # SISO - only awgn (16-QAM) (theory)
+            ber[i] = 2 * (np.sqrt(16) - 1) / np.sqrt(16) / 4 * math.erfc(np.sqrt((4 * snr[i]) / 10))
             continue
         for j in range(N):
             if k==1 :
@@ -72,6 +80,11 @@ for k in range(3):
                     n += 1
                 x = x_new  #現在x已經有加上cyclic prefix
 
+                h = [1]  # h即為 channel 的impulse response
+                H = np.fft.fft(h, Nfft) * np.sqrt((Nfft + n_guard) / Nfft)  # H即為 channel 的frequency response (有Nfft = 64個點)
+                # 因為之後x向量的每個元素會乘上np.sqrt((Nfft + n_guard) / Nfft)，所以通道的頻率響應也要跟著乘上np.sqrt((Nfft + n_guard) / Nfft)才行
+
+
                 # 接下來將每個x的元素乘上(Nfft+n_guard)/Nfft，代表考慮加上cyclic prefix後多消耗的能量
                 # 如果沒有乘上(Nfft+n_guard)/Nfft ， 那麼有加cyclic prefix 跟沒加cyclic prefix，每個取樣點所耗去的能量都是相同的-->不合理
                 # ex
@@ -88,6 +101,7 @@ for k in range(3):
                 #energy = 0
                 #for m in range(n_guard,len(x),1):
                 #   energy += abs(x[m])*abs(x[m])
+
 
                 y = x
 
@@ -126,15 +140,29 @@ for k in range(3):
                         # 用Maximum Likelihood來detect symbol
                         min_distance = 10 ** 9
                         for n in range(len(constellation)):
-                            if abs(constellation[n] - Y[m]) < min_distance:
+                            if abs(constellation[n] - Y[m]/H[m]) < min_distance:
                                 detection = constellation[n]
-                                min_distance = abs(constellation[n] - Y[m])
+                                min_distance = abs(constellation[n] - Y[m]/H[m])
 
-                        if detection != X[m]: #QPSK的symbol發生錯誤時
-                            # 要確實的找出QPSK錯幾個bit，而不是找出錯幾個symbol，來估計BER
-                            if abs(detection.real - X[m].real) == 2:
-                                error += 1
-                            if abs(detection.imag - X[m].imag) == 2:
+                        if detection != X[m]:  # 如果這個sub channel發生symbol error
+                            # 不同的symbol調變，就要用不同的方法從symbol error中找bit error
+                            if constellation_name == 'QPSK':#QPSK的symbol發生錯誤時
+                                # 要確實的找出QPSK錯幾個bit，而不是找出錯幾個symbol，來估計BER
+                                if abs(detection.real - X[m].real) == 2:
+                                    error += 1
+                                if abs(detection.imag - X[m].imag) == 2:
+                                    error += 1
+                            elif constellation_name == '16-QAM':#16-QAM的symbol發生錯誤時
+                                # 要確實的找出16-QAM錯幾個bit，而不是找出錯幾個symbol，來估計BER
+                                if abs(detection.real - X[m].real) == 2 or abs(detection.real - X[m].real) == 6:
+                                    error += 1
+                                elif abs(detection.real - X[m].real) == 4:
+                                    error += 2
+                                if abs(detection.imag - X[m].imag) == 2 or abs(detection.imag - X[m].imag) == 6:
+                                    error += 1
+                                elif abs(detection.imag - X[m].imag) == 4:
+                                    error += 2
+                            elif constellation_name == 'BPSK':
                                 error += 1
 
                     else:
@@ -145,9 +173,9 @@ for k in range(3):
     if k==0 :
         plt.semilogy(snr_db,ber,marker='o',label='rayleigh-theory for BPSK')
     elif k==1:
-        plt.semilogy(snr_db,ber,marker='o',label='only AWGN-simulation for QPSK')
+        plt.semilogy(snr_db,ber,marker='o',label='only AWGN-simulation for {0}'.format(constellation_name))
     elif k==2:
-        plt.semilogy(snr_db,ber,marker='o',label='only AWGN-theory for BPSK')
+        plt.semilogy(snr_db,ber,marker='o',label='only AWGN-theory for {0}'.format(constellation_name))
 
 plt.xlabel('Eb/No , dB')
 plt.ylabel('BER')
