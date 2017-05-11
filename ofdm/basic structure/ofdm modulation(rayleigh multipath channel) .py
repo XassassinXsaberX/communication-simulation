@@ -59,7 +59,7 @@ for k in range(2):
         for j in range(N):
             if k==1 :
                 #決定所有sub-channel要送哪些信號
-                for m in range(64):
+                for m in range(64):#假設sub-channel : 0,1,2,29,30,31及32,33,34,61,62,63不用來傳送symbol
                     if (m>2 and m<29) or (m>34 and m<61):
                         b = np.random.random()  # 產生一個 (0,1) uniform 分布的隨機變數，來決定要送哪個symbol
                         for n in range(len(constellation)):
