@@ -25,6 +25,7 @@ for m in range(len(constellation)):
     energy += abs(constellation[m]) ** 2
 Es = energy / len(constellation)      # 從頻域的角度來看，平均一個symbol有Es的能量
 Eb = Es / K                           # 從頻域的角度來看，平均一個bit有Eb能量
+Eb_old = Eb
 
 # 實際的頻率偏移量為freq_offset = [ -200kHz , -190kHz , -180kHz ...... 180kHz , 190kHz , 200kHz ]
 # 頻率偏移的程度，此例為delta = [-200 , -190 , -180 ...... 180 , 190 , 200]
@@ -121,6 +122,9 @@ for k in range(2):
         error[j] = 10*np.log10(error[j])    # 取其dB值
 
     if k == 0:
+        error[len(error) // 2] = -snr_dB + 10 * np.log10(Eb_old)
+        # 理論上在沒有雜訊的情況，當頻率偏移量為0時，是毫無錯誤的，所以其error magnitude的dB值為 負無窮大
+        # 但考慮有雜訊的情況下，其error magnitude的dB值應為上述公式
         plt.plot(freq_offset_kHz, error, marker='o', label='theory')
     elif k == 1:
         plt.plot(freq_offset_kHz, error, marker='o', label='simulation')
