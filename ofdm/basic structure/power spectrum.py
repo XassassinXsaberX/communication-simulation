@@ -35,8 +35,8 @@ for k in range(2):
     ofdm_symbol = []
     for i in range(N):
         #決定所有sub-channel要送哪些信號
-        for m in range(64):#sub-channel :  0,1,2,3,4,5,58,59,60,61,62,63不用來傳送symbol
-            if m>=6 and m<=57:
+        for m in range(64):#sub-channel :  0,1,2,3,4,5,59,60,61,62,63不用來傳送symbol
+            if m>=6 and m<=58:
                 b = np.random.random()  # 產生一個 (0,1) uniform 分布的隨機變數，來決定要送哪個symbol
                 for n in range(len(constellation)):
                     if b <= (n + 1) / len(constellation):
@@ -91,7 +91,7 @@ for k in range(2):
     # 所以要統計這52個sub channel的平均功率
     mean_power = 0
     for j in range(len(PSD)):
-        if (j % (segment_len // Nfft) == 0) and (j // (segment_len // Nfft) >= 6 and j // (segment_len // Nfft) <=57):
+        if (j % (segment_len // Nfft) == 0) and (j // (segment_len // Nfft) >= 6 and j // (segment_len // Nfft) <=58):
             mean_power += PSD[j]
     mean_power /= Nusc
 
@@ -107,7 +107,7 @@ for k in range(2):
     # 所以要統計這52個sub channel的平均功率
     mean_power = 0
     for j in range(len(power)):
-        if (j % (segment_len // Nfft) == 0) and (j // (segment_len // Nfft) >= 6 and j // (segment_len // Nfft) <= 57):
+        if (j % (segment_len // Nfft) == 0) and (j // (segment_len // Nfft) >= 6 and j // (segment_len // Nfft) <= 58):
             mean_power += power[j]
     mean_power /= Nusc
 
