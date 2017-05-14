@@ -5,14 +5,17 @@ import math
 snr_db = [0]*12
 snr = [0]*12
 ber = [0]*12
-Nt = 2 #傳送端天線數
-Nr = 2 #接收端天線數
+Nt = 4 #傳送端天線數
+Nr = 4 #接收端天線數
 N = 1000000 #執行N次來找錯誤率
 for i in range(len(snr)):
     snr_db[i] = 2*i
     snr[i] = np.power(10,snr_db[i]/10)
 
 constellation = [ -1, 1 ]  #定義星座點的集合
+constellation_name="BPSK"
+constellation = [ -1-1j, -1+1j, 1-1j, 1+1j ]  #定義星座點的集合
+constellation_name="QPSK"
 
 #這裡採用 Nt x Nr 的MIMO系統，所以通道矩陣為 Nr x Nt
 H = [[0j]*Nt for i in range(Nr)]
@@ -90,15 +93,21 @@ for k in range(5):
                 # 我們會將傳送端送出的第m個symbol，detect出來，結果為detection
 
                 if symbol[m] != detection:
-                    error += 1 # error為symbol error 次數
+                    if constellation_name == 'BPSK':
+                        error += 1 # error為symbol error 次數
+                    elif constellation_name == 'QPSK':
+                        if abs(detection.real - symbol[m].real) == 2:
+                            error += 1
+                        if abs(detection.imag - symbol[m].imag) == 2:
+                            error += 1
 
 
         ber[i] = error/(K*Nt*N) #除以K是因為一個symbol有K個bit
 
     if k==0:
-        plt.semilogy(snr_db,ber,marker='o',label='ZF')
+        plt.semilogy(snr_db,ber,marker='o',label='ZF, Nt={0}, Nr={1}, for {2}'.format(Nt,Nr,constellation_name))
     elif k==1:
-        plt.semilogy(snr_db,ber,marker='o',label='MMSE')
+        plt.semilogy(snr_db,ber,marker='o',label='MMSE, Nt={0}, Nr={1}, for {2}'.format(Nt,Nr,constellation_name))
     elif k==2:
         plt.semilogy(snr_db,ber,marker='o',label='MRC(1x2) for BPSK (theory)')
     elif k==3:
