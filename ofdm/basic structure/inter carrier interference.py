@@ -25,7 +25,6 @@ for m in range(len(constellation)):
     energy += abs(constellation[m]) ** 2
 Es = energy / len(constellation)      # 從頻域的角度來看，平均一個symbol有Es的能量
 Eb = Es / K                           # 從頻域的角度來看，平均一個bit有Eb能量
-Eb_old = Eb
 
 # 實際的頻率偏移量為freq_offset = [ -200kHz , -190kHz , -180kHz ...... 180kHz , 190kHz , 200kHz ]
 # 頻率偏移的程度，此例為delta = [-200 , -190 , -180 ...... 180 , 190 , 200]
@@ -47,10 +46,7 @@ for k in range(2):
                     X[m] = 0
 
             # 將頻域的Nfft個 symbol 做 ifft 轉到時域
-            x = np.fft.ifft(X) * Nfft / np.sqrt(Nusc) / np.sqrt(Es)
-            # 乘上Nfft / np.sqrt(Nusc) / np.sqrt(Es)可將一個OFDM symbol的總能量normalize成 1* Nfft  (從時域的角度來看)
-            # 你可以這樣想，送了 Nusc = 52 個symbol，總能量卻為 Nfft = 64，所以平均每symbol花了(64 / 52)的能量-----------------------------------------------------------(式1)
-            # 而在時域總共有64個取樣點，所以平均每個取樣點的能量為1
+            x = np.fft.ifft(X)
 
             # 接下來要加上cyclic prefix
             x_new = [0] * (Nfft + n_guard)
@@ -67,7 +63,7 @@ for k in range(2):
             #T_symbol = 20 * (10 ** 6)
             #t_sample = t_sample = 10**3
             for m in range(len(x)):
-                x[m] *= np.exp(1j * 2*np.pi * freq_offset[j] * (m+1)*t_sample) # 頻率偏移 ( freq_offset[j] / T_symbol ) Hz，此時的時間為(m+1)*t_sample
+                x[m] *= np.exp(1j * 2*np.pi * freq_offset[j] * (m+1)*t_sample) # 頻率偏移 ( freq_offset[j] ) Hz，此時的時間為(m+1)*t_sample
 
 
             y = x
@@ -75,12 +71,14 @@ for k in range(2):
             # 以上為傳送端
             #
             # 現在將傳送出去的OFDM symbol加上雜訊
-            # Eb代表的是平均每個bit的能量
-            Eb = 1 / K * (Nfft / Nusc) * ((Nfft + n_guard) / Nfft)
-            # 若原本一個symbol 能量Es = 1，現在變成1 * (Nfft / Nusc) 可見(式1) ，現在一個取樣點平均能量為1
-            # 若原本一個取樣點平均能量為1，加上cp後變成要乘上((Nfft+n_guard) / Nfft)
-            # 因為一個symbol含K個bit (所以Eb = Es / K)，這就是為何要除上K
-            No = Eb / snr
+
+            # E代表的是平均每個取樣點的能量
+            E = 0
+            for m in range(len(y)):
+                E += abs(y[m])**2
+            E /= len(y)   # 現在E代表平均每個取樣點的能量，也算是平均每一個symbol的能量
+            E /= K        # 現在E代表平均每一個bit的能量(因為一個symbol有K個bit)
+            No = E / snr
             for m in range(Nfft + n_guard):
                 y[m] += np.sqrt(No / 2) * np.random.randn() + 1j * np.sqrt(No / 2) * np.random.randn()
             #
@@ -95,8 +93,6 @@ for k in range(2):
                 n += 1
             y = y_new  # 現在y已經去除OFDM的cyclic prefix
 
-            for m in range(len(y)):
-                y[m] = y[m] * np.sqrt(Es) * np.sqrt(Nusc) / Nfft  # 因為前面x向量有乘上Nfft / np.sqrt(Nusc) / np.sqrt(Es)，所以現在要變回來
             Y = np.fft.fft(y)  # 現在將y轉到頻域，變成Y
 
             # 接下來判斷理論上ICI導致symbol error的程度
@@ -111,7 +107,7 @@ for k in range(2):
                             Y_theory[n] += 0
                         else:
                             Y_theory[n] += X[m] * (np.exp(1j*2*np.pi*(m+delta[j]-n))-1) / (1j*2*np.pi*(m+delta[j]-n))
-                    error[j] += abs(Y_theory[n] - X[n]) ** 2
+                    error[j] += abs(Y_theory[n] - X[n] + Nfft*No) ** 2
 
             # 接下來判斷實際上ICI導致symbol error的程度
             elif k == 1:
@@ -122,15 +118,14 @@ for k in range(2):
         error[j] = 10*np.log10(error[j])    # 取其dB值
 
     if k == 0:
-        error[len(error) // 2] = -snr_dB + 10 * np.log10(Eb_old)
+        error[len(error) // 2] = 10 * np.log10(Nfft*No)
         # 理論上在沒有雜訊的情況，當頻率偏移量為0時，是毫無錯誤的，所以其error magnitude的dB值為 負無窮大
         # 但考慮有雜訊的情況下，其error magnitude的dB值應為上述公式
         plt.plot(freq_offset_kHz, error, marker='o', label='theory')
     elif k == 1:
         plt.plot(freq_offset_kHz, error, marker='o', label='simulation')
-        #plt.ylim(min(error) - 5, max(error) + 5)
 
-plt.title('Error magnitude with frequency offset')
+plt.title('Error magnitude with frequency offset , SNR={0}dB'.format(snr_dB))
 plt.legend()
 plt.ylabel('Error (dB)')
 plt.xlabel('frequency offset, kHz')
