@@ -46,7 +46,7 @@ for k in range(2):
                     X[m] = 0
 
             # 將頻域的Nfft個 symbol 做 ifft 轉到時域
-            x = np.fft.ifft(X)
+            x = np.fft.ifft(X) * Nfft  # 乘上Nfft後得到的x序列，才是真正將時域信號取樣後的結果，你可以參考我在symbol timing中的模擬結果
 
             # 接下來要加上cyclic prefix
             x_new = [0] * (Nfft + n_guard)
@@ -63,7 +63,7 @@ for k in range(2):
             #T_symbol = 20 * (10 ** 6)
             #t_sample = t_sample = 10**3
             for m in range(len(x)):
-                x[m] *= np.exp(1j * 2*np.pi * freq_offset[j] * (m+1)*t_sample) # 頻率偏移 ( freq_offset[j] ) Hz，此時的時間為(m+1)*t_sample
+                x[m] *= np.exp(1j * 2*np.pi * freq_offset[j] * (m)*t_sample) # 頻率偏移 ( freq_offset[j] ) Hz，此時的時間為(m)*t_sample
 
 
             y = x
@@ -93,7 +93,7 @@ for k in range(2):
                 n += 1
             y = y_new  # 現在y已經去除OFDM的cyclic prefix
 
-            Y = np.fft.fft(y)  # 現在將y轉到頻域，變成Y
+            Y = np.fft.fft(y) / Nfft # 現在將y轉到頻域，變成Y，除Nfft是為了補償剛剛所乘的Nfft
 
             # 接下來判斷理論上ICI導致symbol error的程度
             if k == 0:
@@ -101,13 +101,13 @@ for k in range(2):
                 for n in range(Nfft):
                     Y_theory[n] = 0
                     for m in range(Nfft):
-                        if X[m] != 0 and (np.exp(1j*2*np.pi*(m+delta[j]-n))-1) == 0 and (1j*2*np.pi*(m+delta[j]-n))==0:
+                        if X[m] != 0 and (np.exp(1j*2*np.pi*(m + delta[j] - n))-1) == 0 and (1j*2*np.pi*(m + delta[j] - n)) == 0:
                             Y_theory[n] += X[m]
                         elif X[m] == 0:
                             Y_theory[n] += 0
                         else:
-                            Y_theory[n] += X[m] * (np.exp(1j*2*np.pi*(m+delta[j]-n))-1) / (1j*2*np.pi*(m+delta[j]-n))
-                    error[j] += abs(Y_theory[n] - X[n] + Nfft*No) ** 2
+                            Y_theory[n] += X[m] * (np.exp(1j*2*np.pi*(m + delta[j] - n))-1) / (1j*2*np.pi*(m + delta[j] - n))
+                    error[j] += abs(Y_theory[n] - X[n] + No/Nfft) ** 2
 
             # 接下來判斷實際上ICI導致symbol error的程度
             elif k == 1:
@@ -118,7 +118,7 @@ for k in range(2):
         error[j] = 10*np.log10(error[j])    # 取其dB值
 
     if k == 0:
-        error[len(error) // 2] = 10 * np.log10(Nfft*No)
+        error[len(error) // 2] = 10 * np.log10(No/Nfft)
         # 理論上在沒有雜訊的情況，當頻率偏移量為0時，是毫無錯誤的，所以其error magnitude的dB值為 負無窮大
         # 但考慮有雜訊的情況下，其error magnitude的dB值應為上述公式
         plt.plot(freq_offset_kHz, error, marker='o', label='theory')
