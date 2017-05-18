@@ -22,9 +22,9 @@ C:\Users\user\AppData\Local\Programs\Python\Python35\Scripts\;C:\Users\user\AppD
 </br>
 </br>
 
-接下來可以執行[get-pip.py](https://raw.githubusercontent.com/XassassinXsaberX/test/master/get-pip.py)來下載並安裝pip腳本檔  
-再來可以用pip來安裝該模擬所需的套件  
-可在命令提示字元中輸入來下載並安裝繪圖套件matplotlib
+接下來可以執行[get-pip.py](https://raw.githubusercontent.com/XassassinXsaberX/test/master/get-pip.py)來下載並安裝pip腳本檔  
+再來可以用pip來安裝該模擬所需的套件  
+可在命令提示字元中輸入來下載並安裝繪圖套件matplotlib  
 ```
 pip install matplotlib
 ```
