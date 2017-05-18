@@ -1,4 +1,4 @@
-# communication-simulation
+﻿# communication-simulation
 <img src="https://raw.githubusercontent.com/XassassinXsaberX/communication-simulation/master/img/Python-35.jpg" width="100px" height="100px" />
 
 這是將我目前在LAB所學到的知識，進行模擬的結果  
@@ -8,7 +8,7 @@
 
 該repository的所有模擬在python3.5.2(64bits)環境下可順利執行  
 請先至[官網](https://www.python.org/downloads/windows/)下載python3.0以上的版本，建議用3.5.2  
-安裝時請記得勾選Add Python 3.5 to PATH，之後才能直接在命令提示字元中執行python  
+安裝時請記得勾選`Add Python 3.5 to PATH`，之後才能直接在命令提示字元中執行python  
 若沒有勾選的話，需要在安裝完後將python直譯器執行檔路徑加入環境變數PATH中，才能在命令提示字元中執行python
 
 <img src="https://raw.githubusercontent.com/XassassinXsaberX/communication-simulation/master/img/python%E6%95%99%E5%AD%B8001.png" />
