@@ -26,7 +26,7 @@ C:\Users\user\AppData\Local\Programs\Python\Python35\Scripts\;C:\Users\user\AppD
 再來可以用pip來安裝該模擬所需的套件  
 可在命令提示字元中輸入來下載並安裝繪圖套件matplotlib  
 
-<img src="https://raw.githubusercontent.com/XassassinXsaberX/communication-simulation/master/img/matplotlib.png" height="50px" />
+<img src="https://raw.githubusercontent.com/XassassinXsaberX/communication-simulation/master/img/matplotlib.png" height="45px" />
 
 ```
 pip install matplotlib
@@ -37,7 +37,7 @@ pip install matplotlib
 假設numpy的.whl檔下載至C:\Users\user\Downloads中  
 請執行命令提示字元，並進行如下步驟
 
-<img src="https://raw.githubusercontent.com/XassassinXsaberX/communication-simulation/master/img/numpy.jpg" height="50px" />   <img src="https://raw.githubusercontent.com/XassassinXsaberX/communication-simulation/master/img/scipy.png" height="50px" />
+<img src="https://raw.githubusercontent.com/XassassinXsaberX/communication-simulation/master/img/numpy.jpg" height="75px" />   <img src="https://raw.githubusercontent.com/XassassinXsaberX/communication-simulation/master/img/scipy.png" height="50px" />
 
 ```
 先用cd指令切換目錄
