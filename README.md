@@ -24,7 +24,7 @@ C:\Users\user\AppData\Local\Programs\Python\Python35\Scripts\;C:\Users\user\AppD
 
 接下來可以執行[get-pip.py](https://raw.githubusercontent.com/XassassinXsaberX/test/master/get-pip.py)來下載並安裝pip腳本檔  
 再來可以用pip來安裝該模擬所需的套件  
-可在命令提示字元中輸入來下載並安裝繪圖套件matplotlib  
+可在命令提示字元中輸入以下指令來下載並安裝繪圖套件matplotlib  
 
 <img src="https://raw.githubusercontent.com/XassassinXsaberX/communication-simulation/master/img/matplotlib.png" height="45px" />
 
@@ -32,8 +32,8 @@ C:\Users\user\AppData\Local\Programs\Python\Python35\Scripts\;C:\Users\user\AppD
 pip install matplotlib
 ```
 而科學計算套件scipy的安裝會比較麻煩  
-請先到[此網站](http://www.lfd.uci.edu/~gohlke/pythonlibs/#numpy)下載numpy套件  
-到[這裡](http://www.lfd.uci.edu/~gohlke/pythonlibs/#scipy)下載scipy套件  
+請先到[此網站](http://www.lfd.uci.edu/~gohlke/pythonlibs/#numpy)下載numpy套件(64bit的OS 請下載amd64版本)  
+到[這裡](http://www.lfd.uci.edu/~gohlke/pythonlibs/#scipy)下載scipy套件(64bit的OS 請下載amd64版本)  
 假設numpy的.whl檔下載至C:\Users\user\Downloads中  
 請執行命令提示字元，並進行如下步驟
 
@@ -41,7 +41,7 @@ pip install matplotlib
 
 ```
 先用cd指令切換目錄
-cd \d C:\Users\user\Downloads
+cd /d C:\Users\user\Downloads
 
 再用pip來安裝.whl檔
 pip install 你下載的numpy.whl檔
