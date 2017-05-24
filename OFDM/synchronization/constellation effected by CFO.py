@@ -7,26 +7,23 @@ T_symbol = 3.2*10**(-6)                         # ofdm symbol time
 t_sample = T_symbol / Nfft                      # 取樣間隔
 n_guard = 16                                    # 經過取樣後有n_guard個點屬於guard interval，Nfft個點屬於data interval
 X = [0]*Nfft                                    # 從頻域送出64個symbol
-N = 10                                          # 做N次迭代來找error
-L = 7                                           # 假設有L條multipath
+N = 100                                          # 做N次迭代來找error
+L = 1                                           # 假設有L條multipath
 h = [0]*L                                       # 存放multipath通道的 impulase response
 H = [0]*N                                       # 為一個list其中有N個元素(因為總共會傳送N個ofdm symbol)，其中每一個元素會對應到一個序列類型的物件，這是代表傳送某個ofdm symbolo時的channel frequency response
 max_delay_spread = L-1                          # 最大的 time delay spread為L-1個取樣點的時間，所以會有L條路徑，分別為delay 0,  delay 1,  delay 2 .......delay L-1 時間單位
+normalized_freq_offset = [0, 0.01, 0.05, 0.3, 0.5, 1, 1.7, 2] # normalized後的frequency offset
+freq_offset = [0]*len(normalized_freq_offset)   # 實際的frequency offset
+for i in range(len(freq_offset)):
+    freq_offset[i] = normalized_freq_offset[i] / T_symbol
 constellation_real = []                         # 存放最後星座圖結果的實部
 constellation_imag = []                         # 存放最後星座圖結果的虛部
 
 
 constellation = [-1-1j,-1+1j,1-1j,1+1j] # 決定星座點
-K = int(np.log2(len(constellation)))  # 代表一個symbol含有K個bit
-# 接下來要算平均一個symbol有多少能量
-# 先將所有可能的星座點能量全部加起來
-energy = 0
-for m in range(len(constellation)):
-    energy += abs(constellation[m]) ** 2
-Es = energy / len(constellation)      # 從頻域的角度來看，平均一個symbol有Es的能量
-Eb = Es / K                           # 從頻域的角度來看，平均一個bit有Eb能量
+constellation_name = 'QPSK'
 
-for k in range(4):
+for k in range(len(normalized_freq_offset)):
     constellation_real = []                             # 將星座圖的實部清空
     constellation_imag = []                             # 將星座圖的虛部清空
     s = [0] * ( (Nfft + n_guard)*N + max_delay_spread)  # 代表ofdm的時域symbol序列
@@ -45,6 +42,12 @@ for k in range(4):
 
         # 將頻域的Nfft個 symbol 做 ifft 轉到時域
         x = np.fft.ifft(X) * Nfft  # 乘上Nfft後得到的x序列，才是真正將時域信號取樣後的結果，你可以參考我在symbol timing中的模擬結果
+
+        # 接下來考慮frequency offset造成的影響，相當於乘上np.exp(1j * 2*np.pi *normalized_ frequency_offset [k]* m / Nfft)
+        for m in range(len(x)):
+            #x[m] *= np.exp(1j * 2 * np.pi * normalized_freq_offset[k] * m / Nfft)
+            # 亦可寫成
+            x[m] *= np.exp(1j * 2 * np.pi * freq_offset[k] * m * t_sample)
 
         # 接下來要加上cyclic prefix
         x_new = [0] * (Nfft + n_guard)
@@ -65,41 +68,15 @@ for k in range(4):
                 s[(i * (Nfft + n_guard)) + n + m] += x[n]*h[m]
         H[i] = list(np.fft.fft(h,Nfft))  # 將impulse response h 做FFT，並將結果存到 H[i] 中
 
-        # 注意我們先不考慮雜訊造成的影響
-
 
     for i in range(N): #總共收到N個ofdm symbol
         y = [0]*(Nfft+n_guard)
         # 接下來要開始取樣
-        if k == 0:  # case 1 為準確的在時間點 0 , t_sample , 2*t_sample ...... (Nfft + n_guard - 1)*t_sample取樣
-            STO = 0
-            for m in range(Nfft+n_guard):
-                y[m] = s[i*(Nfft+n_guard) + m]
+        # 準確的在時間點 0 , t_sample , 2*t_sample ...... (Nfft + n_guard - 1)*t_sample取樣
+        STO = 0
+        for m in range(Nfft+n_guard):
+            y[m] = s[i*(Nfft+n_guard) + m]
 
-        elif k == 1: # case 2 為在稍早於準確的時間點的地方取樣，但不會與前一個ofdm symbol發生重疊
-            STO = -10 # STO在 -1 ~  -(n_guard - max_delay_spread)，即( -1 ~ -10 )的情況下，其結果都與與其類似
-            if i == 0:
-                continue
-            else:
-                for m in range(Nfft + n_guard):
-                    y[m] = s[i * (Nfft + n_guard) + m + STO]
-
-        elif k == 2:  # case 3 為在過早於準確的時間點取樣，會與前一個ofdm symbol發生重疊(因為前一個ofdm symbol在multipath的影響下會發生dealy spread)，所以會有ISI發生
-                     # 而ISI又會造成信號不連續，不連續的結果會導致子載波間不正交，而不正交便導致ICI
-            STO = -12 # STO在小於-(n_guard - max_delay_spread)的情況下，即( -11, -12, -13......)，其STO若越小則ISI越嚴重
-            if i == 0:
-                continue
-            else:
-                for m in range(Nfft + n_guard):
-                    y[m] = s[i * (Nfft + n_guard) + m + STO]
-        elif k == 3:  # case 4 為在稍晚於準確的時間點取樣，會與下一個ofdm symbol發生重疊，會有ISI發生
-                     # 而ISI又會造成信號不連續，不連續的結果會導致子載波間不正交，而不正交便導致ICI
-            STO = 10
-            if i == N-1:
-                continue
-            else:
-                for m in range(Nfft + n_guard):
-                    y[m] = s[i * (Nfft + n_guard) + m + STO]
 
         # 接下來要對取樣後的(Nfft + n_guard)個點去除cyclic prefix，變為Nfft個點
         y_new = [0] * Nfft
@@ -117,9 +94,9 @@ for k in range(4):
                 constellation_imag += [detection.imag]
 
 
-    plt.subplot(2,2,k+1)
-    plt.scatter(constellation_real, constellation_imag, s=7, marker='o',label='Case{0}\nSTO = {1}\nFFT size={2}\nmax delay spread={3}\nguard interval={4}'.format(k+1,STO, Nfft,max_delay_spread,n_guard))
-    plt.title('constellation')
+    plt.subplot(2,4,k+1)
+    plt.scatter(constellation_real, constellation_imag, s=7, marker='o',label=r'$normalized\/freq\/offset\/\epsilon = {0}$'.format(normalized_freq_offset[k]))
+    plt.title('constellation for {0} in OFDM symtem'.format(constellation_name))
     plt.xlabel('Real')
     plt.ylabel('Imag')
     plt.legend(loc='upper right')
