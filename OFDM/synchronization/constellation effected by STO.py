@@ -67,39 +67,33 @@ for k in range(4):
 
         # 注意我們先不考慮雜訊造成的影響
 
+    # 接下來我們來看看如何加上不同的STO
+    if k == 0:     # case 1 為準確的在時間點 0 , t_sample , 2*t_sample ...... (Nfft + n_guard - 1)*t_sample取樣
+        STO = 0
+
+    elif k == 1:   # case 2 為在稍早於準確的時間點的地方取樣，但不會與前一個ofdm symbol發生重疊
+                  # STO在 -1 ~  -(n_guard - max_delay_spread)，即( -1 ~ -10 )的情況下，其結果都與與其類似
+        STO = -10
+        s = [0]*abs(STO) + s
+        # s就是所有的ofdm時域序列
+
+    elif k == 2:   # case 3 為在過早於準確的時間點取樣，會與前一個ofdm symbol發生重疊(因為前一個ofdm symbol在multipath的影響下會發生dealy spread)，所以會有ISI發生
+                  # 而ISI又會造成信號不連續，不連續的結果會導致子載波間不正交，而不正交便導致ICI
+                  # STO在小於-(n_guard - max_delay_spread)的情況下，即( -11, -12, -13......)，其STO若越小則ISI越嚴重
+        STO = -12
+        s = [0]*abs(STO) + s
+
+    elif k == 3:   # case 4 為在稍晚於準確的時間點取樣，會與下一個ofdm symbol發生重疊，會有ISI發生
+                  # 而ISI又會造成信號不連續，不連續的結果會導致子載波間不正交，而不正交便導致ICI
+        STO = 10
+        s = s[STO:] + [0]*abs(STO)
 
     for i in range(N): #總共收到N個ofdm symbol
         y = [0]*(Nfft+n_guard)
         # 接下來要開始取樣
-        if k == 0:  # case 1 為準確的在時間點 0 , t_sample , 2*t_sample ...... (Nfft + n_guard - 1)*t_sample取樣
-            STO = 0
-            for m in range(Nfft+n_guard):
-                y[m] = s[i*(Nfft+n_guard) + m]
+        for m in range(Nfft+n_guard):
+            y[m] = s[i*(Nfft+n_guard) + m]
 
-        elif k == 1: # case 2 為在稍早於準確的時間點的地方取樣，但不會與前一個ofdm symbol發生重疊
-            STO = -10 # STO在 -1 ~  -(n_guard - max_delay_spread)，即( -1 ~ -10 )的情況下，其結果都與與其類似
-            if i == 0:
-                continue
-            else:
-                for m in range(Nfft + n_guard):
-                    y[m] = s[i * (Nfft + n_guard) + m + STO]
-
-        elif k == 2:  # case 3 為在過早於準確的時間點取樣，會與前一個ofdm symbol發生重疊(因為前一個ofdm symbol在multipath的影響下會發生dealy spread)，所以會有ISI發生
-                     # 而ISI又會造成信號不連續，不連續的結果會導致子載波間不正交，而不正交便導致ICI
-            STO = -12 # STO在小於-(n_guard - max_delay_spread)的情況下，即( -11, -12, -13......)，其STO若越小則ISI越嚴重
-            if i == 0:
-                continue
-            else:
-                for m in range(Nfft + n_guard):
-                    y[m] = s[i * (Nfft + n_guard) + m + STO]
-        elif k == 3:  # case 4 為在稍晚於準確的時間點取樣，會與下一個ofdm symbol發生重疊，會有ISI發生
-                     # 而ISI又會造成信號不連續，不連續的結果會導致子載波間不正交，而不正交便導致ICI
-            STO = 10
-            if i == N-1:
-                continue
-            else:
-                for m in range(Nfft + n_guard):
-                    y[m] = s[i * (Nfft + n_guard) + m + STO]
 
         # 接下來要對取樣後的(Nfft + n_guard)個點去除cyclic prefix，變為Nfft個點
         y_new = [0] * Nfft
