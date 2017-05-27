@@ -14,6 +14,7 @@ H = [0]*N                                       # 為一個list其中有N個元�
 max_delay_spread = L-1                          # 最大的 time delay spread為L-1個取樣點的時間，所以會有L條路徑，分別為delay 0,  delay 1,  delay 2 .......delay L-1 時間單位
 constellation_real = []                         # 存放最後星座圖結果的實部
 constellation_imag = []                         # 存放最後星座圖結果的虛部
+STO = [0, -10, -12 ,10]                         # 決定STO
 
 
 constellation = [-1-1j,-1+1j,1-1j,1+1j] # 決定星座點
@@ -26,7 +27,7 @@ for m in range(len(constellation)):
 Es = energy / len(constellation)      # 從頻域的角度來看，平均一個symbol有Es的能量
 Eb = Es / K                           # 從頻域的角度來看，平均一個bit有Eb能量
 
-for k in range(4):
+for k in range(len(STO)):
     constellation_real = []                             # 將星座圖的實部清空
     constellation_imag = []                             # 將星座圖的虛部清空
     s = [0] * ( (Nfft + n_guard)*N + max_delay_spread)  # 代表ofdm的時域symbol序列
@@ -68,25 +69,25 @@ for k in range(4):
         # 注意我們先不考慮雜訊造成的影響
 
     # 接下來我們來看看如何加上不同的STO
-    if k == 0:     # case 1 為準確的在時間點 0 , t_sample , 2*t_sample ...... (Nfft + n_guard - 1)*t_sample取樣
-        STO = 0
+    if STO[k] < 0:
+        s = [0]*abs(STO[k]) + s[0:len(s) - abs(STO[k])]
+    elif STO[k] > 0:
+        s = s[abs(STO[k]):] + [0]*abs(STO[k])
+    # 我們來分析一下STO可能會造成的影響
+    # 若 STO[k] == 0
+    # 為準確的在時間點 0 , t_sample , 2*t_sample ...... (Nfft + n_guard - 1)*t_sample取樣
+    #
+    # 若STO在 -1 ~  -(n_guard - max_delay_spread)，即( -1 ~ -10 )的情況下
+    # 為在稍早於準確的時間點的地方取樣，但不會與前一個ofdm symbol發生重疊
+    #
+    # 若在過早於準確的時間點取樣，會與前一個ofdm symbol發生重疊(因為前一個ofdm symbol在multipath的影響下會發生dealy spread)，所以會有ISI發生
+    # 而ISI又會造成信號不連續，不連續的結果會導致子載波間不正交，而不正交便導致ICI
+    # STO在小於-(n_guard - max_delay_spread)的情況下，即( -11, -12, -13......)，其STO若越小則ISI越嚴重
+    #
+    # 若在過早於準確的時間點取樣，會與前一個ofdm symbol發生重疊(因為前一個ofdm symbol在multipath的影響下會發生dealy spread)，所以會有ISI發生
+    # 而ISI又會造成信號不連續，不連續的結果會導致子載波間不正交，而不正交便導致ICI
+    # STO在小於-(n_guard - max_delay_spread)的情況下，即( -11, -12, -13......)，其STO若越小則ISI越嚴重
 
-    elif k == 1:   # case 2 為在稍早於準確的時間點的地方取樣，但不會與前一個ofdm symbol發生重疊
-                  # STO在 -1 ~  -(n_guard - max_delay_spread)，即( -1 ~ -10 )的情況下，其結果都與與其類似
-        STO = -10
-        s = [0]*abs(STO) + s
-        # s就是所有的ofdm時域序列
-
-    elif k == 2:   # case 3 為在過早於準確的時間點取樣，會與前一個ofdm symbol發生重疊(因為前一個ofdm symbol在multipath的影響下會發生dealy spread)，所以會有ISI發生
-                  # 而ISI又會造成信號不連續，不連續的結果會導致子載波間不正交，而不正交便導致ICI
-                  # STO在小於-(n_guard - max_delay_spread)的情況下，即( -11, -12, -13......)，其STO若越小則ISI越嚴重
-        STO = -12
-        s = [0]*abs(STO) + s
-
-    elif k == 3:   # case 4 為在稍晚於準確的時間點取樣，會與下一個ofdm symbol發生重疊，會有ISI發生
-                  # 而ISI又會造成信號不連續，不連續的結果會導致子載波間不正交，而不正交便導致ICI
-        STO = 10
-        s = s[STO:] + [0]*abs(STO)
 
     for i in range(N): #總共收到N個ofdm symbol
         y = [0]*(Nfft+n_guard)
