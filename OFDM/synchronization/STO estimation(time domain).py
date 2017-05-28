@@ -1,8 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+# 以下的模擬為 time-domain estimation techniques for STO
+
 Nfft = 128                                      # 總共有多少個sub channel
-Nusc = 128                                      # 總共有多少sub channel 真正的被用來傳送symbol，假設是sub-channel : 0,1,2,29,30,31及32,33,34,61,62,63不用來傳送symbol
+Nusc = 128                                      # 總共有多少sub channel 真正的被用來傳送symbol
 T_symbol = 3.2*10**(-6)                         # ofdm symbol time
 t_sample = T_symbol / Nfft                      # 取樣間隔
 n_guard = Nfft//4                               # 經過取樣後有n_guard個點屬於guard interval，Nfft個點屬於data interval
@@ -151,7 +153,7 @@ for k in range(len(STO)):
         # 利用兩個sample block的squared difference來估計STO
         # 這個方法的模擬結果不錯，可以正確估計STO來達到完全同步！
         squared_difference = [0] * (Nfft + n_guard)
-        STO_square_difference = STO_by_square_difference(s_add_noise, Nfft, n_guard, common_delay, squared_difference)  # STO_difference即為用此方法估計出來的STO
+        STO_square_difference = STO_by_square_difference(s_add_noise, Nfft, n_guard, common_delay, squared_difference)  # STO_squared_difference即為用此方法估計出來的STO
         prob_squared_difference[common_delay - STO_square_difference] += 1  # 統計STO為STO_difference的次數
         for m in range(len(squared_difference)):
             average_squared_difference[m] += squared_difference[m]
@@ -256,9 +258,6 @@ for k in range(len(STO)):
     plt.xticks([-10, 0, 10, position3])
     plt.xlim(-32, 32)
     plt.ylim(0, 1)
-
-
-
 
 plt.show()
 
