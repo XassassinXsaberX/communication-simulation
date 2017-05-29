@@ -9,7 +9,7 @@ T_symbol = 3.2*10**(-6)                         # ofdm symbol time
 t_sample = T_symbol / Nfft                      # 取樣間隔
 n_guard = Nfft//4                               # 經過取樣後有n_guard個點屬於guard interval，Nfft個點屬於data interval
 X = [0]*Nfft                                    # 從頻域送出64個symbol
-N = 1                                         # 做N次迭代 (當N=100時估計肯定正確)
+N = 100                                         # 做N次迭代 (當N=100時估計肯定正確)
 symbol_number = 10                              # 一次送幾個OFDM symbol
 L = 1                                           # 假設有L條multipath
 h = [0]*L                                       # 存放multipath通道的 impulase response
@@ -78,7 +78,8 @@ for k in range(len(STO)):
         energy = 0
         for m in range(len(s)):
             energy += abs(s[m]) ** 2
-        Es = energy / len(s)  # 平均一個取樣點有Es的能量，同時這也是平均一個symbol 的能量
+        Es = (energy / len(s)) * (Nfft+n_guard)/Nfft  # 平均一個取樣點有(energy / len(s))的能量
+                                                      # 而平均一個symbol 的能量為平均一個取樣點能量乘上(Nfft + n_guard) / Nfft
         Eb = Es / K  # 平均一個bit 有Eb的能量
         No = Eb / snr
 

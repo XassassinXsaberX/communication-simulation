@@ -91,8 +91,8 @@ for k in range(len(STO)):
         energy = 0
         for m in range(len(s)):
             energy += abs(s[m]) ** 2
-        Es = energy / (len(s)/2)  # OFDM symbol變有兩部分，第一部分為training symbol，第二部分才是真的的OFDM symbol，
-                                  # 平均一個取樣點有energy / len(s) 的能量，而平均一個symbol 有energy / (len(s)/2)能量，因為考慮到training symbol造成的負擔overhead
+        Es = (energy / len(s)) * (Nfft + n_guard) / Nfft  # 平均一個取樣點有(energy / len(s))的能量
+                                                          # 而平均一個symbol 的能量為平均一個取樣點能量乘上(Nfft + n_guard) / Nfft
         Eb = Es / K  # 平均一個bit 有Eb的能量
         No = Eb / snr
 
