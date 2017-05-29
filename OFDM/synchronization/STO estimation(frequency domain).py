@@ -48,6 +48,10 @@ for k in range(len(STO)):
         n += 1
     training_symbol = t_new  # 現在training symbol已經有加上cyclic prefix
 
+    # 接下來考慮frequency offset造成的影響，相當於乘上np.exp(1j * 2*np.pi * CFO [k] * (m-n_guard) / Nfft)
+    for m in range(len(training_symbol)):
+        training_symbol[m] *= np.exp(1j * 2 * np.pi * CFO[k] * (m - n_guard) / Nfft)
+
     for i in range(N):
         s = []  # 用來存放OFDM symbol
 
@@ -64,10 +68,6 @@ for k in range(len(STO)):
             # 將頻域的Nfft個 symbol 做 ifft 轉到時域
             x = np.fft.ifft(X) #* Nfft  # 乘上Nfft後得到的x序列，才是真正將時域信號取樣後的結果，你可以參考我在symbol timing中的模擬結果
 
-            # 接下來考慮frequency offset造成的影響，相當於乘上np.exp(1j * 2*np.pi * CFO [k] * m / Nfft)
-            for m in range(len(x)):
-                x[m] *= np.exp(1j * 2*np.pi * CFO[k] * m / Nfft)
-
             # 接下來要加上cyclic prefix
             x_new = [0] * (Nfft + n_guard)
             n = 0
@@ -78,6 +78,12 @@ for k in range(len(STO)):
                 x_new[n] = x[m]
                 n += 1
             x = x_new  # 現在x已經有加上cyclic prefix
+
+            # 接下來考慮CFO(carrier frequency offset)造成的影響，相當於乘上np.exp(1j * 2*np.pi * CFO [k] * (m-n_guard) / Nfft)
+            # 其中CFO[k] 為normalized frequency offset
+            # 注意，一定要加完cp後才能開始考慮CFO造成的影響
+            for m in range(len(x)):
+                x[m] *= np.exp(1j * 2 * np.pi * CFO[k] * (m-n_guard) / Nfft)
 
             # 這裡先不考慮multipath通道吧
 

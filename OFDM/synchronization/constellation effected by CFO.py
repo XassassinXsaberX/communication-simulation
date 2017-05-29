@@ -43,12 +43,6 @@ for k in range(len(normalized_freq_offset)):
         # 將頻域的Nfft個 symbol 做 ifft 轉到時域
         x = np.fft.ifft(X) * Nfft  # 乘上Nfft後得到的x序列，才是真正將時域信號取樣後的結果，你可以參考我在symbol timing中的模擬結果
 
-        # 接下來考慮frequency offset造成的影響，相當於乘上np.exp(1j * 2*np.pi *normalized_ frequency_offset [k]* m / Nfft)
-        for m in range(len(x)):
-            #x[m] *= np.exp(1j * 2 * np.pi * normalized_freq_offset[k] * m / Nfft)
-            # 亦可寫成
-            x[m] *= np.exp(1j * 2 * np.pi * freq_offset[k] * m * t_sample)
-
         # 接下來要加上cyclic prefix
         x_new = [0] * (Nfft + n_guard)
         n = 0
@@ -59,6 +53,13 @@ for k in range(len(normalized_freq_offset)):
             x_new[n] = x[m]
             n += 1
         x = x_new  # 現在x已經有加上cyclic prefix
+
+        # 接下來考慮CFO(carrier frequency offset)造成的影響，相當於乘上np.exp(1j * 2*np.pi *normalized_ frequency_offset [k]* (m-n_guard) / Nfft)
+        # 注意，一定要加完cp後才能開始考慮CFO造成的影響
+        for m in range(len(x)):
+            x[m] *= np.exp(1j * 2 * np.pi * normalized_freq_offset[k] * (m-n_guard) / Nfft)
+            # 亦可寫成
+            #x[m] *= np.exp(1j * 2 * np.pi * freq_offset[k] * (m-n_guard) * t_sample)
 
         # 接下來要考慮multipath通道效應
         for m in range(L):

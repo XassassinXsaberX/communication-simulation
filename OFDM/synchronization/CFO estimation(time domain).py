@@ -29,36 +29,44 @@ K = int(np.log2(len(constellation)))            # 代表一個symbol含有K個bi
 
 
 for k in range(3):
-    if k == 1 or k == 2: # CFO Estimation techniques using training symbol
-        # 決定training symbol子載波中的repetitive pattern的週期D
-        if k == 1:
-            D = 2
-        elif k == 2:
-            D = 4
-        Train = [0] * Nfft
-        # 假設training symbol的子載波是採用comb-type方式來送symbol
-        for m in range(Nfft):# 假設所有sub-channel 都有送symbol
-            if m % D == 0:
-                b = np.random.random()  # 產生一個 (0,1) uniform 分布的隨機變數，來決定要送哪個symbol
-                for n in range(len(constellation)):
-                    if b <= (n + 1) / len(constellation):
-                        Train[m] = constellation[n]
-                        break
-        train = np.fft.ifft(Train) # 將頻域的Nfft個 symbol 做 ifft 轉到時域
-
-        # 接下來要加上cyclic prefix
-        t_new = [0] * (Nfft + n_guard)
-        n = 0
-        for m in range(Nfft - n_guard, Nfft, 1):
-            t_new[n] = train[m]
-            n += 1
-        for m in range(Nfft):
-            t_new[n] = train[m]
-            n += 1
-        training_symbol = t_new  # 現在training symbol已經有加上cyclic prefix
-
     for i in range(len(CFO)):
         mse = 0  # 先將mse歸0
+
+        if k == 1 or k == 2:  # CFO Estimation techniques using training symbol
+            # 採用此方法的話要先決定training symbol
+            # 先決定training symbol子載波中的repetitive pattern的週期D
+            if k == 1:
+                D = 2
+            elif k == 2:
+                D = 4
+            Train = [0] * Nfft
+            # 假設training symbol的子載波是採用comb-type方式來送symbol
+            for m in range(Nfft):  # 假設所有sub-channel 都有送symbol
+                if m % D == 0:
+                    b = np.random.random()  # 產生一個 (0,1) uniform 分布的隨機變數，來決定要送哪個symbol
+                    for n in range(len(constellation)):
+                        if b <= (n + 1) / len(constellation):
+                            Train[m] = constellation[n]
+                            break
+            train = np.fft.ifft(Train)  # 將頻域的Nfft個 symbol 做 ifft 轉到時域
+
+            # 接下來要加上cyclic prefix
+            t_new = [0] * (Nfft + n_guard)
+            n = 0
+            for m in range(Nfft - n_guard, Nfft, 1):
+                t_new[n] = train[m]
+                n += 1
+            for m in range(Nfft):
+                t_new[n] = train[m]
+                n += 1
+            training_symbol = t_new  # 現在training symbol已經有加上cyclic prefix
+
+            # 接下來考慮CFO (carrier frequency offset)造成的影響，相當於乘上np.exp(1j * 2*np.pi * CFO [i] * (m-n_guard) / Nfft)
+            # 其中CFO[i] 為normalized frequency offset
+            # 注意，一定要加完cp後才能開始考慮CFO造成的影響
+            for m in range(len(training_symbol)):
+                training_symbol[m] *= np.exp(1j * 2 * np.pi * CFO[i] * (m-n_guard) / Nfft)
+
         for j in range(N):
             s = []  # 用來存放OFDM symbol
 
@@ -85,6 +93,12 @@ for k in range(3):
                 n += 1
             x = x_new  # 現在x已經有加上cyclic prefix
 
+            # 接下來考慮CFO (carrier frequency offset)造成的影響，相當於乘上np.exp(1j * 2*np.pi * CFO [i] * (m-n_guard) / Nfft)
+            # 其中CFO[i] 為normalized frequency offset
+            # 注意，一定要加完cp後才能開始考慮CFO造成的影響
+            for m in range(len(x)):
+                x[m] *= np.exp(1j * 2 * np.pi * CFO[i] * (m-n_guard) / Nfft)
+
             # 這裡先不考慮multipath通道吧
 
             # 如果是採用training symbol估計CFO的技術，則OFDM symbol序列需事先加上training symbol
@@ -92,11 +106,6 @@ for k in range(3):
                 s += training_symbol
             # 將這一個OFDM symbol vector x，加到完整的OFDM symbol 序列中
             s += x
-
-            # 最後考慮frequency offset造成的影響，相當於乘上np.exp(1j * 2*np.pi * CFO [i] * m / Nfft)
-            # 其中CFO[i] 為normalized frequency offset
-            for m in range(len(s)):
-                s[m] *= np.exp(1j * 2*np.pi * CFO[i] * m / Nfft)
 
             # 決定完OFDM symbol 序列後
             # 接下來要統計平均一個symbol有多少能量
