@@ -48,10 +48,6 @@ for k in range(len(STO)):
         n += 1
     training_symbol = t_new  # 現在training symbol已經有加上cyclic prefix
 
-    # 接下來考慮frequency offset造成的影響，相當於乘上np.exp(1j * 2*np.pi * CFO [k] * (m-n_guard) / Nfft)
-    for m in range(len(training_symbol)):
-        training_symbol[m] *= np.exp(1j * 2 * np.pi * CFO[k] * (m - n_guard) / Nfft)
-
     for i in range(N):
         s = []  # 用來存放OFDM symbol
 
@@ -79,18 +75,18 @@ for k in range(len(STO)):
                 n += 1
             x = x_new  # 現在x已經有加上cyclic prefix
 
-            # 接下來考慮CFO(carrier frequency offset)造成的影響，相當於乘上np.exp(1j * 2*np.pi * CFO [k] * (m-n_guard) / Nfft)
-            # 其中CFO[k] 為normalized frequency offset
-            # 注意，一定要加完cp後才能開始考慮CFO造成的影響
-            for m in range(len(x)):
-                x[m] *= np.exp(1j * 2 * np.pi * CFO[k] * (m-n_guard) / Nfft)
-
             # 這裡先不考慮multipath通道吧
 
             # 將這一個OFDM symbol，加到完整的OFDM symbol 序列中
             # 在加入之前要先加上training symbol
             s += training_symbol
             s += x
+
+        # 最後才考慮CFO (carrier frequency offset)造成的影響，相當於乘上np.exp(1j * 2*np.pi * CFO [k] * m / Nfft)
+        # 其中CFO[k] 為normalized frequency offset
+        # 注意，一定要加完cp後，並建立好完整的OFDM symbol序列後才能開始考慮CFO造成的影響
+        for m in range(len(s)):
+            s[m] *= np.exp(1j * 2 * np.pi * CFO[k] * m / Nfft)
 
         # 決定完完整的OFDM symbol 序列後
         # 接下來要統計平均一個symbol有多少能量

@@ -54,12 +54,12 @@ for k in range(len(normalized_freq_offset)):
             n += 1
         x = x_new  # 現在x已經有加上cyclic prefix
 
-        # 接下來考慮CFO(carrier frequency offset)造成的影響，相當於乘上np.exp(1j * 2*np.pi *normalized_ frequency_offset [k]* (m-n_guard) / Nfft)
+        # 接下來考慮CFO(carrier frequency offset)造成的影響，相當於乘上np.exp(1j * 2*np.pi *normalized_ frequency_offset [k]* m / Nfft)
         # 注意，一定要加完cp後才能開始考慮CFO造成的影響
         for m in range(len(x)):
-            x[m] *= np.exp(1j * 2 * np.pi * normalized_freq_offset[k] * (m-n_guard) / Nfft)
+            x[m] *= np.exp(1j * 2 * np.pi * normalized_freq_offset[k] * m / Nfft)
             # 亦可寫成
-            #x[m] *= np.exp(1j * 2 * np.pi * freq_offset[k] * (m-n_guard) * t_sample)
+            #x[m] *= np.exp(1j * 2 * np.pi * freq_offset[k] * m * t_sample)
 
         # 接下來要考慮multipath通道效應
         for m in range(L):
