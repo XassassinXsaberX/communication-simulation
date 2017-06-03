@@ -12,7 +12,7 @@ L = 1                                           # 假設有L條multipath
 h = [0]*L                                       # 存放multipath通道的 impulase response
 H = [0]*N                                       # 為一個list其中有N個元素(因為總共會傳送N個ofdm symbol)，其中每一個元素會對應到一個序列類型的物件，這是代表傳送某個ofdm symbolo時的channel frequency response
 max_delay_spread = L-1                          # 最大的 time delay spread為L-1個取樣點的時間，所以會有L條路徑，分別為delay 0,  delay 1,  delay 2 .......delay L-1 時間單位
-normalized_freq_offset = [0, 0.01, 0.05, 0.3, 0.5, 1, 1.7, 2] # normalized後的frequency offset
+normalized_freq_offset = [0, 0.001, 0.01, 0.05, 0.5, 1, 1.7, 2] # normalized後的frequency offset
 freq_offset = [0]*len(normalized_freq_offset)   # 實際的frequency offset
 for i in range(len(freq_offset)):
     freq_offset[i] = normalized_freq_offset[i] / T_symbol
@@ -54,12 +54,7 @@ for k in range(len(normalized_freq_offset)):
             n += 1
         x = x_new  # 現在x已經有加上cyclic prefix
 
-        # 接下來考慮CFO(carrier frequency offset)造成的影響，相當於乘上np.exp(1j * 2*np.pi *normalized_ frequency_offset [k]* m / Nfft)
-        # 注意，一定要加完cp後才能開始考慮CFO造成的影響
-        for m in range(len(x)):
-            x[m] *= np.exp(1j * 2 * np.pi * normalized_freq_offset[k] * m / Nfft)
-            # 亦可寫成
-            #x[m] *= np.exp(1j * 2 * np.pi * freq_offset[k] * m * t_sample)
+
 
         # 接下來要考慮multipath通道效應
         for m in range(L):
@@ -68,6 +63,13 @@ for k in range(len(normalized_freq_offset)):
             for n in range(Nfft+n_guard):
                 s[(i * (Nfft + n_guard)) + n + m] += x[n]*h[m]
         H[i] = list(np.fft.fft(h,Nfft))  # 將impulse response h 做FFT，並將結果存到 H[i] 中
+
+    # 接下來考慮CFO(carrier frequency offset)造成的影響，相當於乘上np.exp(1j * 2*np.pi *normalized_ frequency_offset [k]* m / Nfft)
+    # 注意，一定要建立好完整的OFDM symbol序列後才能開始考慮CFO造成的影響
+    for m in range(len(s)):
+        s[m] *= np.exp(1j * 2 * np.pi * normalized_freq_offset[k] * m / Nfft)
+        # 亦可寫成
+        #s[m] *= np.exp(1j * 2 * np.pi * freq_offset[k] * m * t_sample)
 
 
     for i in range(N): #總共收到N個ofdm symbol
