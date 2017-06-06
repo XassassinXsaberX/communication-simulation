@@ -102,8 +102,8 @@ for k in range(len(Nfft)):
     plt.semilogy(z_square_dB, CCDF_theory, label='ideal (N={0})'.format(Nfft[k]))
     plt.semilogy(z_square_dB, CCDF_simulation, marker='o', linestyle='--', label='simulation (N={0})'.format(Nfft[k]))
 
-plt.xlabel('PAPR0(dB)')
-plt.ylabel('CCDF=Probability(PAPR > PAPR0)')
+plt.xlabel(r'$z^2(dB)$')
+plt.ylabel(r'$CCDF=Probability\/(PAPR\/>\/z^2)$')
 plt.legend()
 plt.grid(True,which='both')
 plt.show()
