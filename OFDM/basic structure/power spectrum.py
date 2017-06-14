@@ -17,6 +17,7 @@ ofdm_symbol = []                # 時域上的ofdm symbol序列
 segment_len = 1024              # 設定PSD的解析度
 power = [0]*segment_len         # power spectrum
 T_symbol = 3.2*(10**-6)         # ofdm symbol 周期
+Ts = T_symbol / Nfft            # 取樣間隔
 
 
 # 決定有哪些頻率
@@ -123,7 +124,8 @@ for k in range(2):
         freq = [0] * len(PSD)  # power spectrum對應到的頻率
         j = -(len(PSD) // 2)
         for i in range(len(freq)):
-            freq[i] = j / (len(PSD) // 2) * 32 / T_symbol / (10 ** 6)
+            #freq[i] = j / (len(PSD) // 2) * 32 / T_symbol / (10 ** 6)
+            freq[i] = j / (len(PSD) // 2) * (1/2*1/Ts) / (10 ** 6)
             j += 1
         plt.plot(freq,PSD,label='with CP')
 
