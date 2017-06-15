@@ -1,6 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+# 此模擬的目的是要觀察對baseband OFDM signal的PAPR，當載波數Nfft越大時，其Nfft個取樣點越趨近於高斯分佈
+# 除此之外我們會順便觀察CCDF ( P( PAPR > z^2 ) )
+# 當Nfft越大，PAPR也會越大
+
 z_square_dB = [0]*21
 z_square = [0]*len(z_square_dB)
 z = [0]*len(z_square_dB)

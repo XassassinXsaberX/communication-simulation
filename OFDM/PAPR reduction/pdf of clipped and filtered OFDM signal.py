@@ -2,6 +2,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy import signal
 
+# 該模擬的目的是看看將baseband OFDM signal乘上載波變成passband OFDM signal後
+# 再對passband OFDN signal做clipping、filtering
+# 觀察其pdf、PSD
+# 還有觀察BPF (Band Pass Filter)的時域、頻域特性
 
 Nfft = 128                  # 有Nfft個子載波
 n_guard = Nfft//4           # guard interval
@@ -19,11 +23,6 @@ t = [0]*(Nfft + n_guard)*L  # 用來存放時間向量
 # 每個過取樣點(oversampling points)的間隔為Ts_oversample
 for i in range(len(t)):
     t[i] = i * Ts_oversample
-
-t1 = [0]*(Nfft + n_guard)*L  # 用來存放時間向量
-# 每個過取樣點(oversampling points)的間隔為Ts_oversample
-for i in range(len(t)):
-    t1[i] = i / len(t)
 
 normalize_t = [0]*(Nfft + n_guard)*L # 用來存放normalized後的時間向量
 # 原本一個OFDM symbol在正常取樣下會有Nfft + n_guard個點

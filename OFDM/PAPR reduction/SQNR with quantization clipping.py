@@ -1,6 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+# 該模擬的目的是要觀察對baseband OFDM signal做clipping後，再量化
+# 其量化誤差(即quantization noise)的程度
+# 我們可發現clipping level太小時，SQNR越小(因為信號受到clipping distortion影響)
+# 當clipping level太大時，SQNR也會越小(因為此時量化雜訊越大)
+
 Nfft = 64                   # 有Nfft個子載波
 X = [0]*Nfft                # Nfft個子載波要送出的symbol
 L = 8                       # oversampling factor
@@ -42,7 +47,7 @@ for k in range(len(bit)):
             # 接下來會用類似LPF的方法，在vector X中間補零，再做IFFT，達到時域siganl oversample的目的
             oversampling_X = X[:Nfft//2] + [0]*(Nfft*L - Nfft) + X[Nfft//2:]
 
-            oversampling_x = np.fft.ifft(oversampling_X) * (Nfft*L) / np.sqrt(Nfft) / Es  # 作IFFT頻域轉到時域
+            oversampling_x = np.fft.ifft(oversampling_X) * (Nfft*L) / np.sqrt(Nfft/Es)  # 作IFFT頻域轉到時域
             # 乘上(Nfft*L) / np.sqrt(Nfft) / Es 的目的是將一個OFDM symbol的總能量normalize成 1* (Nfft*L)
             # 即平均每一個取樣點的平均能量為1
 
