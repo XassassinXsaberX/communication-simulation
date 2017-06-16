@@ -117,6 +117,8 @@ for i in range(len(pass_clip_x)):
 
 # 最後對clipped passband signal做filtering
 pass_clip_filter_x = signal.lfilter(bpass, [1], pass_clip_x)
+#pass_clip_filter_x = np.fft.ifft(np.fft.fft(bpass, len(pass_clip_x)) * np.fft.fft(pass_clip_x))  別這樣用
+
 # 關於該函數的用法可參考官網 https://docs.scipy.org/doc/scipy-0.18.1/reference/generated/scipy.signal.lfilter.html
 
 

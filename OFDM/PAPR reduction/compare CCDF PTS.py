@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 Nfft = 256                          # 有Nfft個子載波
 X = [0]*Nfft                        # 傳送Nfft個symbol
-N = 10000                           # 做N次來找CCDF
+N = 100000                          # 做N次來找CCDF
 V = [1, 2, 4, 8 ,16]                # 將symbol vector分成V[i] 個subblock
 z_square_dB = [0]*50                # z^2的dB值
 z_square = [0]*len(z_square_dB)     # z^2
