@@ -57,9 +57,9 @@ def raised_cosine_filter(N , alpha, Tsym, Ts):
     # 時間從負到正
     t = [0]*N
     for i in range(N):
-        t[i] = i        # 若N = 6，時間序列變 [ 0 , 1 , 2 , 3 , 4 , 5 , 6 ]
-        t[i] -= N/2     # 若N = 6，時間序列變 [ -3 , -2 , -1 , 0 , 1 , 2 , 3 ]
-        t[i] *= Ts      # 若N = 6，時間序列變 [ -3Ts , -2Ts , -1Ts , 0 , 1Ts , 2Ts , 3Ts ]
+        t[i] = i        # 若N = 6，時間序列變 [ 0 , 1 , 2 , 3 , 4 , 5  ]
+        t[i] -= N/2     # 若N = 6，時間序列變 [ -3 , -2 , -1 , 0 , 1 , 2  ]
+        t[i] *= Ts      # 若N = 6，時間序列變 [ -3Ts , -2Ts , -1Ts , 0 , 1Ts , 2Ts  ]
 
     # 接下來決定impulse response
     h = [0]*N
