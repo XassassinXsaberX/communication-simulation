@@ -2,20 +2,43 @@ import numpy as np
 import matplotlib.pyplot as plt
 import math
 
+# MMSE 的公式推導可參考 https://www.youtube.com/watch?v=aQqgMcSviko
+# 如果要直接看結論公式可快轉到 30:52
+
 snr_db = [0]*12
 snr = [0]*12
 ber = [0]*12
-Nt = 4 #傳送端天線數
-Nr = 4 #接收端天線數
+Nt = 2 #傳送端天線數
+Nr = 2 #接收端天線數
 N = 1000000 #執行N次來找錯誤率
 for i in range(len(snr)):
     snr_db[i] = 2*i
     snr[i] = np.power(10,snr_db[i]/10)
 
-constellation = [ -1, 1 ]  #定義星座點的集合
+# 定義BPSK星座點
+constellation = [ -1, 1 ]
 constellation_name="BPSK"
-constellation = [ -1-1j, -1+1j, 1-1j, 1+1j ]  #定義星座點的集合
+
+# 定義QPSK星座點
+constellation = [ -1-1j, -1+1j, 1-1j, 1+1j ]
 constellation_name="QPSK"
+
+
+# 定義16QAM星座點
+constellation = [1+1j,1+3j,3+1j,3+3j,-1+1j,-1+3j,-3+1j,-3+3j,-1-1j,-1-3j,-3-1j,-3-3j,1-1j,1-3j,3-1j,3-3j]
+constellation_name='16QAM'
+# 16QAM時MMSE的錯誤率會出問題!?
+'''
+# 接著定義64QAM星座點
+constellation_new = [-7 , -5, -3, -1, 1, 3, 5, 7]
+constellation_name = '64QAM'
+constellation = []
+for i in range(len(constellation_new)):
+    for j in range(len(constellation_new)):
+        constellation += [constellation_new[i] + 1j*constellation_new[j]]
+'''
+
+
 
 #這裡採用 Nt x Nr 的MIMO系統，所以通道矩陣為 Nr x Nt
 H = [[0j]*Nt for i in range(Nr)]
@@ -23,7 +46,7 @@ H = np.matrix(H)
 symbol = [0]*Nt #因為有Nt根天線，而且接收端不採用任何分集技術，所以會送Nt個不同symbol
 y = [0]*Nr      #接收端的向量
 
-for k in range(5):
+for k in range(4):
     for i in range(len(snr)):
         error = 0
 
@@ -37,15 +60,14 @@ for k in range(5):
         # 因為沒有像space-time coding 一樣重複送data，所以Eb不會再變大
         No = Eb / snr[i]                    # 最後決定No
 
-        if k==2:# MRC(1x2) for BPSK (theory)
+        if k==0:# MRC(1x2) for BPSK (theory)
             ber[i] = 1 / 2 - 1 / 2 * np.power(1 + 1 / snr[i], -1 / 2)
             ber[i] = ber[i] * ber[i] * (1 + 2 * (1 - ber[i]))
             continue
-        elif k==3:# SISO for BPSK (theory)
-            ber[i] = 1 / 2 - 1 / 2 * np.power(1 + 1 / snr[i], -1 / 2)
-            continue
-        elif k==4:# SISO for BPSK (theory)
-            ber[i] = 1/2*(1-np.sqrt(snr[i]/(snr[i]+1)))
+        elif k==1:# SISO for BPSK (theory)
+            ber[i] = 1 / 2 * (1 - np.sqrt(snr[i] / (snr[i] + 1)))
+            # 亦可用以下公式
+            #ber[i] = 1 / 2 - 1 / 2 * np.power(1 + 1 / snr[i], -1 / 2)
             continue
 
         for j in range(N):
@@ -70,12 +92,12 @@ for k in range(5):
                     y[m] += H[m,n]*symbol[n]
                 y[m] += np.sqrt(No/2)*np.random.randn() + 1j*np.sqrt(No/2)*np.random.randn()
 
-            if k==0:#執行ZF detection
+            if k == 2:#執行ZF detection
                 #決定ZE 的weight matrix
                 W = ((H.getH()*H)**(-1))*H.getH()  #W為 Nt x Nr 矩陣
-            elif k == 1:  # 執行MMSE detection
+            elif k == 3:  # 執行MMSE detection
                 # 決定MMSE 的weight matrix
-                W = ((H.getH() * H + 1 / snr[i] * np.identity(Nt)) ** (-1)) * H.getH()  # W為 Nt x Nr 矩陣
+                W = Es * (Es * H.getH() * H + No * np.identity(Nt)).I * H.getH()  # W為 Nt x Nr 矩陣
 
             # receive向量 = W矩陣 * y向量
             receive = [0]*Nt
@@ -94,26 +116,63 @@ for k in range(5):
 
                 if symbol[m] != detection:
                     if constellation_name == 'BPSK':
-                        error += 1 # error為symbol error 次數
+                        error += 1 # error為bit error 次數
                     elif constellation_name == 'QPSK':
                         if abs(detection.real - symbol[m].real) == 2:
                             error += 1
                         if abs(detection.imag - symbol[m].imag) == 2:
                             error += 1
+                    elif constellation_name == '16QAM':
+                        if abs(detection.real - symbol[m].real) == 2 or abs(detection.real - symbol[m].real) == 6:
+                            error += 1
+                        elif abs(detection.real - symbol[m].real) == 4:
+                            error += 2
+                        if abs(detection.imag - symbol[m].imag) == 2 or abs(detection.imag - symbol[m].imag) == 6:
+                            error += 1
+                        elif abs(detection.imag - symbol[m].imag) == 4:
+                            error += 2
+                    elif constellation_name == '64QAM':
+                        if abs(detection.real - symbol[m].real) == 2 or abs(detection.real - symbol[m].real) == 6 or abs(detection.real - symbol[m].real) == 14:
+                            error += 1
+                        elif abs(detection.real - symbol[m].real) == 4 or abs(detection.real - symbol[m].real) == 8 or abs(detection.real - symbol[m].real) == 12:
+                            error += 2
+                        elif abs(detection.real - symbol[m].real) == 10:
+                            error += 3
+                        if abs(detection.imag - symbol[m].imag) == 2 or abs(detection.imag - symbol[m].imag) == 6 or abs(detection.imag - symbol[m].imag) == 14:
+                            error += 1
+                        elif abs(detection.imag - symbol[m].imag) == 4 or abs(detection.imag - symbol[m].imag) == 8 or abs(detection.imag - symbol[m].imag) == 12:
+                            error += 2
+                        elif abs(detection.imag - symbol[m].imag) == 10:
+                            error += 3
 
 
         ber[i] = error/(K*Nt*N) #除以K是因為一個symbol有K個bit
 
     if k==0:
-        plt.semilogy(snr_db,ber,marker='o',label='ZF, Nt={0}, Nr={1}, for {2}'.format(Nt,Nr,constellation_name))
+        plt.semilogy(snr_db, ber, marker='o', label='MRC(1x2) for BPSK (theory)')
     elif k==1:
-        plt.semilogy(snr_db,ber,marker='o',label='MMSE, Nt={0}, Nr={1}, for {2}'.format(Nt,Nr,constellation_name))
+        plt.semilogy(snr_db, ber, marker='o', label='SISO for BPSK (theory)')
     elif k==2:
-        plt.semilogy(snr_db,ber,marker='o',label='MRC(1x2) for BPSK (theory)')
+        plt.semilogy(snr_db, ber, marker='o', label='ZF, Nt={0}, Nr={1}, for {2}'.format(Nt, Nr, constellation_name))
+        # 將錯誤率的數據存成檔案
+        if N >= 1000000:  # 在很多點模擬分析的情況下，錯誤率較正確，我們可以將數據存起來，之後就不用在花時間去模擬
+            with open('ZF detection for {0} (Nt={1}, Nr={2}).dat'.format(constellation_name, Nt, Nr), 'w') as f:
+                f.write('snr_db\n')
+                for m in range(len(snr_db)):
+                    f.write("{0} ".format(snr_db[m]))
+                f.write('\nber\n')
+                for m in range(len(snr_db)):
+                    f.write("{0} ".format(ber[m]))
     elif k==3:
-        plt.semilogy(snr_db,ber,marker='o',label='SISO for BPSK (theory-formula1)')
-    elif k==4:
-        plt.semilogy(snr_db,ber,marker='o',label='SISO for BPSK (theory-formula2)')
+        plt.semilogy(snr_db, ber, marker='o', label='MMSE, Nt={0}, Nr={1}, for {2}'.format(Nt, Nr, constellation_name))
+        if N >= 1000000:  # 在很多點模擬分析的情況下，錯誤率較正確，我們可以將數據存起來，之後就不用在花時間去模擬
+            with open('MMSE detection for {0} (Nt={1}, Nr={2}).dat'.format(constellation_name, Nt, Nr), 'w') as f:
+                f.write('snr_db\n')
+                for m in range(len(snr_db)):
+                    f.write("{0} ".format(snr_db[m]))
+                f.write('\nber\n')
+                for m in range(len(snr_db)):
+                    f.write("{0} ".format(ber[m]))
 plt.legend()
 plt.ylabel('ber')
 plt.xlabel('snr (Eb/No) dB')
