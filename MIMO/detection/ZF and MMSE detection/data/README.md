@@ -5,7 +5,7 @@
 為了避免在其他模擬中多耗費時間去進行以前曾經做過的模擬  
 所以我把模擬的bit error rate(ber)紀錄成.dat檔(可用記事本開啟)  
 </br>
-以MMSE detection for 16QAM (Nt=2, Nr=2).dat為例
+以`MMSE detection for 16QAM (Nt=2, Nr=2).dat`為例
 將.dat檔打開後你可以看到
 ```
 snr_db
