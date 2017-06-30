@@ -4,19 +4,37 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-snr_db = [0]*10
-snr = [0]*10
-ber = [0]*10
-Nt = 4          # 傳送端天線數
+snr_db = [0]*12
+snr = [0]*len(snr_db)
+ber = [0]*len(snr_db)
+Nt = 8          # 傳送端天線數
 Nt_select = 2   # 實際上會從Nt跟天線中選Nt_select跟天線來送data
 Nr = 2          # 接收端天線數
-N = 1000000 #執行N次來找錯誤率
-for i in range(10):
+N = 10000 #執行N次來找錯誤率
+for i in range(len(snr_db)):
     snr_db[i] = 2*i
     snr[i] = np.power(10,snr_db[i]/10)
 
+# 決定BPSK的星座點
 constellation = [-1, 1]
 constellation_name = 'BPSK'
+# 定義QPSK星座點
+#constellation = [ -1-1j, -1+1j, 1-1j, 1+1j ]
+#constellation_name="QPSK"
+# 定義16QAM星座點
+constellation = [1+1j,1+3j,3+1j,3+3j,-1+1j,-1+3j,-3+1j,-3+3j,-1-1j,-1-3j,-3-1j,-3-3j,1-1j,1-3j,3-1j,3-3j]
+constellation_name='16QAM'
+# 16QAM時MMSE的錯誤率會出問題!?
+'''
+# 接著定義64QAM星座點
+constellation_new = [-7 , -5, -3, -1, 1, 3, 5, 7]
+constellation_name = '64QAM'
+constellation = []
+for i in range(len(constellation_new)):
+    for j in range(len(constellation_new)):
+        constellation += [constellation_new[i] + 1j*constellation_new[j]]
+'''
+
 
 for k in range(6):
     for i in range(len(snr)):
@@ -42,6 +60,37 @@ for k in range(6):
             continue
         else:
             if k == 2 or k == 3 :# 此時不採用antenna selection，所以傳送端只有Nt_select根天線而不是Nt根天線
+
+                # 此時傳送端不採用antenna selection，而接收端採用zero forcing or MMSE detection
+                # 因為我們的data資料夾中有2x2及4x4的MIMO with zero forcing  & MMSE detection模擬結果
+                # 所以可拿出來使用
+                draw = 0  # draw變數用來告訴我們是否已經成功讀取數據並畫出圖形
+                if Nr == 2 or Nr == 4:
+                    if k == 2:
+                        f = open('./data/ZF detection for {0} (Nt={1}, Nr={2}).dat'.format(constellation_name, Nt_select,Nr))
+                    elif k == 3:
+                        f = open('./data/MMSE detection for {0} (Nt={1}, Nr={2}).dat'.format(constellation_name, Nt_select, Nr))
+                    # 以下的步驟都是讀取數據
+                    f.readline()
+                    snr_db_string = f.readline()[:-2]
+                    snr_db_list = snr_db_string.split(' ')
+                    for m in range(len(snr_db_list)):
+                        snr_db_list[m] = float(snr_db_list[m])
+                    f.readline()
+                    ber_string = f.readline()[:-2]
+                    ber_list = ber_string.split(' ')
+                    for m in range(len(ber_list)):
+                        ber_list[m] = float(ber_list[m])
+                    # 接下來利用讀出來的數據畫出圖形
+                    if k == 2:
+                        plt.semilogy(snr_db_list, ber_list, marker='o', label='ZF, Nt={0}, Nr={1}, for {2}'.format(Nt_select, Nr, constellation_name))
+                    elif k == 3:
+                        plt.semilogy(snr_db_list, ber_list, marker='o', label='MMSE, Nt={0}, Nr={1}, for {2}'.format(Nt_select, Nr, constellation_name))
+                    draw = 1    # 代表成功畫出圖形
+                    f.close()   # 關閉檔案
+                    break;
+
+                # 若data資料夾中沒有此模擬的數據就要真的來模擬了
                 # 這裡採用 Nt_select x Nr 的MIMO系統，所以通道矩陣為 Nr x Nt_select
                 H = [[0j] * Nt_select for i in range(Nr)]
                 H = np.matrix(H)
@@ -49,7 +98,7 @@ for k in range(6):
                 y = [0] * Nr              # 接收端的向量
 
 
-            else:                # 此時有採用antenna selection，所以傳送端共有Nt根天線，會從其中Nt_select根天線來送data
+            else:   # 此時有採用antenna selection，所以傳送端共有Nt根天線，會從其中Nt_select根天線來送data
                 # 這裡採用 Nt x Nr 的MIMO系統，所以通道矩陣為 Nr x Nt
                 H = [[0j] * Nt for i in range(Nr)]                  # H代表尚未選擇天線前的channel matrix
                 H = np.matrix(H)
@@ -114,14 +163,14 @@ for k in range(6):
                         W = ((H.getH() * H) ** (-1)) * H.getH()  # W為 Nt _select x Nr 矩陣
                     elif k == 3:  # 執行MMSE detection
                         # 決定MMSE 的weight matrix
-                        W = ((H.getH() * H + 1 / snr[i] * np.identity(Nt_select)) ** (-1)) * H.getH()  # W為 Nt_select x Nr 矩陣
+                        W = Es * (Es * H.getH() * H + No * np.identity(Nt_select)).I * H.getH()  # W為 Nt_select x Nr 矩陣
                 else: # 此時採用antenna selection
                     if k == 4:  # 執行ZF detection
                         # 決定ZF 的weight matrix
                         W = ((actual_H.getH() * actual_H) ** (-1)) * actual_H.getH()  # W為 Nt_select x Nr 矩陣
                     elif k == 5:  # 執行MMSE detection
                         # 決定MMSE 的weight matrix
-                        W = ((actual_H.getH() * actual_H + 1 / snr[i] * np.identity(Nt_select)) ** (-1)) * actual_H.getH()  # W為 Nt_select x Nr 矩陣
+                        W = Es * (Es * actual_H.getH() * actual_H + No * np.identity(Nt_select)).I * actual_H.getH()  # W為 Nt_select x Nr 矩陣
 
                 # receive向量 = W矩陣 * y向量
                 receive = [0] * Nt_select
@@ -140,12 +189,34 @@ for k in range(6):
 
                     if symbol[m] != detection:
                         if constellation_name == 'BPSK':
-                            error += 1  # error為symbol error 次數
+                            error += 1  # error為bit error 次數
                         elif constellation_name == 'QPSK':
                             if abs(detection.real - symbol[m].real) == 2:
                                 error += 1
                             if abs(detection.imag - symbol[m].imag) == 2:
                                 error += 1
+                        elif constellation_name == '16QAM':
+                            if abs(detection.real - symbol[m].real) == 2 or abs(detection.real - symbol[m].real) == 6:
+                                error += 1
+                            elif abs(detection.real - symbol[m].real) == 4:
+                                error += 2
+                            if abs(detection.imag - symbol[m].imag) == 2 or abs(detection.imag - symbol[m].imag) == 6:
+                                error += 1
+                            elif abs(detection.imag - symbol[m].imag) == 4:
+                                error += 2
+                        elif constellation_name == '64QAM':
+                            if abs(detection.real - symbol[m].real) == 2 or abs(detection.real - symbol[m].real) == 6 or abs(detection.real - symbol[m].real) == 14:
+                                error += 1
+                            elif abs(detection.real - symbol[m].real) == 4 or abs(detection.real - symbol[m].real) == 8 or abs(detection.real - symbol[m].real) == 12:
+                                error += 2
+                            elif abs(detection.real - symbol[m].real) == 10:
+                                error += 3
+                            if abs(detection.imag - symbol[m].imag) == 2 or abs(detection.imag - symbol[m].imag) == 6 or abs(detection.imag - symbol[m].imag) == 14:
+                                error += 1
+                            elif abs(detection.imag - symbol[m].imag) == 4 or abs(detection.imag - symbol[m].imag) == 8 or abs(detection.imag - symbol[m].imag) == 12:
+                                error += 2
+                            elif abs(detection.imag - symbol[m].imag) == 10:
+                                error += 3
 
             ber[i] = error / (K * Nt_select * N)  # 除以K是因為一個symbol有K個bit
 
@@ -157,9 +228,11 @@ for k in range(6):
     elif k == 1:
         plt.semilogy(snr_db, ber, marker='o', linestyle='-', label='MRC(1x2) for BPSK(theory)')
     elif k == 2:
-        plt.semilogy(snr_db, ber, marker='o', label='ZF, Nt={0}, Nr={1}, for {2}'.format(Nt_select, Nr, constellation_name))
+        if draw == 0:  # 如果沒有data資料夾中沒有這個模擬，代表剛才是沒有畫圖，所以現在要畫圖
+            plt.semilogy(snr_db, ber, marker='o', label='ZF, Nt={0}, Nr={1}, for {2}'.format(Nt_select, Nr, constellation_name))
     elif k == 3:
-        plt.semilogy(snr_db, ber, marker='o', label='MMSE, Nt={0}, Nr={1}, for {2}'.format(Nt_select, Nr, constellation_name))
+        if draw == 0:  # 如果沒有data資料夾中沒有這個模擬，代表剛才是沒有畫圖，所以現在要畫圖
+            plt.semilogy(snr_db, ber, marker='o', label='MMSE, Nt={0}, Nr={1}, for {2}'.format(Nt_select, Nr, constellation_name))
     elif k == 4:
         plt.semilogy(snr_db, ber, marker='o', label='ZF, Nt/Nt_select={0}/{1}, Nr={2}, for {3}\nwith antenna selection'.format(Nt, Nt_select, Nr, constellation_name))
     elif k == 5:
