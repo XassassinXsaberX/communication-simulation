@@ -27,7 +27,6 @@ constellation_name="QPSK"
 # 定義16QAM星座點
 constellation = [1+1j,1+3j,3+1j,3+3j,-1+1j,-1+3j,-3+1j,-3+3j,-1-1j,-1-3j,-3-1j,-3-3j,1-1j,1-3j,3-1j,3-3j]
 constellation_name='16QAM'
-# 16QAM時MMSE的錯誤率會出問題!?
 '''
 # 接著定義64QAM星座點
 constellation_new = [-7 , -5, -3, -1, 1, 3, 5, 7]
