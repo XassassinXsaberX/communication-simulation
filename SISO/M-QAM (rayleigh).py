@@ -63,13 +63,73 @@ for k in range(3):
             #接下來加上雜訊
             receive = receive + np.sqrt(No/2)*np.random.randn() + 1j*np.sqrt(No/2)*np.random.randn()
 
-            #接收端先用matched filter來解調信號，再用Maximum Likelihood來detect symbol
+            #接收端利用Maximum Likelihood來detect symbol (缺點是對M - QAM調變系統而言，解調速度過慢)
+            #receive = receive/h
+            #min_distance = 10**9
+            #for m in range(len(constellation)):
+            #    if abs(constellation[m] - receive) < min_distance:
+            #        detection = constellation[m]
+            #        min_distance = abs(constellation[m] - receive)
+
+            # 以下則是採用 decision region的方式來對M - QAM系統做symbol detection(解調速度較快)
             receive = receive/h
-            min_distance = 10**9
-            for m in range(len(constellation)):
-                if abs(constellation[m] - receive) < min_distance:
-                    detection = constellation[m]
-                    min_distance = abs(constellation[m] - receive)
+            detection = 0
+            if constellation_name == '16QAM':
+                for m in range(2):
+                    if m == 0:  # 先detect symbol的實部
+                        if (receive.real < -2):
+                            detection += -3
+                        elif (receive.real >= -2 and receive.real < 0):
+                            detection += -1
+                        elif (receive.real >= 0 and receive.real < 2):
+                            detection += 1
+                        else:
+                            detection += 3
+                    else:  # 再來detect symbol的虛部
+                        if (receive.imag < -2):
+                            detection += -3j
+                        elif (receive.imag >= -2 and receive.imag < 0):
+                            detection += -1j
+                        elif (receive.imag >= 0 and receive.imag < 2):
+                            detection += 1j
+                        else:
+                            detection += 3j
+            elif constellation_name == '64QAM':
+                for m in range(2):
+                    if m == 0:  # 先detect symbol的實部
+                        if (receive.real < -6):
+                            detection += -7
+                        elif (receive.real >= -6 and receive.real < -4):
+                            detection += -5
+                        elif (receive.real >= -4 and receive.real < -2):
+                            detection += -3
+                        elif (receive.real >= -2 and receive.real < 0):
+                            detection += -1
+                        elif (receive.real >= 0 and receive.real < 2):
+                            detection += 1
+                        elif (receive.real >= 2 and receive.real < 4):
+                            detection += 3
+                        elif (receive.real >= 4 and receive.real < 6):
+                            detection += 5
+                        else:
+                            detection += 7
+                    else:  # 再來detect symbol的虛部
+                        if (receive.imag < -6):
+                            detection += -7j
+                        elif (receive.imag >= -6 and receive.imag < -4):
+                            detection += -5j
+                        elif (receive.imag >= -4 and receive.imag < -2):
+                            detection += -3j
+                        elif (receive.imag >= -2 and receive.imag < 0):
+                            detection += -1j
+                        elif (receive.imag >= 0 and receive.imag < 2):
+                            detection += 1j
+                        elif (receive.imag >= 2 and receive.imag < 4):
+                            detection += 3j
+                        elif (receive.imag >= 4 and receive.imag < 6):
+                            detection += 5j
+                        else:
+                            detection += 7j
 
             # 紀錄錯幾個bit
             # 我們這次不找錯幾個symbol，因為在SNR很小時，symbol error rate / 4 不等於 ber error rate
