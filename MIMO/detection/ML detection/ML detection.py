@@ -1,24 +1,60 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import time
 
-snr_db = [0]*10
-snr = [0]*10
-ber = [0]*10
-N = 1000000  #執行N次來找錯誤率
+# 開始記時
+tstart = time.time()
+
+snr_db = [0]*13
+snr = [0]*13
+ber = [0]*13
+N = 10000  #執行N次來找錯誤率
 Nt = 2       #傳送端天線數
 Nr = 2       #接收端天線數
-for i in range(10):
-    snr_db[i] = 2*i
+for i in range(len(snr_db)):
+    snr_db[i] = 3*i
     snr[i] = np.power(10,snr_db[i]/10)
 
 #這裡採用 Nt x Nr 的MIMO系統，所以通道矩陣為 Nr x Nt
 H = [[0j]*Nt for i in range(Nr)]
 H = np.matrix(H)
-symbol = [0]*Nt #因為有Nt根天線，而且接收端不採用任何分集技術，所以會送Nt個不同symbol
-y = [0]*Nr  #接收端的向量
+symbol = np.matrix([0j]*Nt).T   #因為有Nt根天線，而且接收端不採用任何分集技術，所以會送Nt個不同symbol
+y = np.matrix([0j]*Nr).T       #接收端的向量
+
+# 定義BPSK星座點
+constellation = [1,-1]
+constellation_name = 'BPSK'
+'''
+# 定義QPSK星座點
+constellation = [1+1j, 1-1j, -1+1j, -1-1j]
+constellation_name = 'QPSK'
+# 定義16QAM星座點
+constellation = [1+1j,1+3j,3+1j,3+3j,-1+1j,-1+3j,-3+1j,-3+3j,-1-1j,-1-3j,-3-1j,-3-3j,1-1j,1-3j,3-1j,3-3j]
+constellation_name = '16QAM'
 
 
-for k in range(4):
+# 定義64QAM星座點
+constellation_new = [-7, -5, -3, -1, 1, 3, 5, 7]
+constellation_name = '64QAM'
+constellation = []
+for i in range(len(constellation_new)):
+    for j in range(len(constellation_new)):
+        constellation += [constellation_new[i] + 1j * constellation_new[j]]
+    '''
+
+
+K = int(np.log2(len(constellation))) #代表一個symbol含有K個bit
+#接下來要算平均一個symbol有多少能量
+energy = 0
+for m in range(len(constellation)):
+    energy += abs(constellation[m])**2
+Es = energy / len(constellation)  #平均一個symbol有Es的能量
+Eb = Es / K                       #平均一個bit有Eb能量
+#因為沒有像space-time coding 一樣重複送data，所以Eb不會再變大
+
+
+
+for k in range(3):
     for i in range(len(snr)):
         error = 0
         total = 0
@@ -30,28 +66,13 @@ for k in range(4):
             ber[i] = ber[i]*ber[i]*(1+2*(1-ber[i]))
             continue
         for j in range(N):
-            if k==2 :
-                # 採用BPSK調變
-                constellation = [1,-1]
-            elif k==3 :
-                # 採用QPSK調變
-                constellation = [1+1j, 1-1j, -1+1j, -1-1j]
-
-            K = int(np.log2(len(constellation))) #代表一個symbol含有K個bit
-            #接下來要算平均一個symbol有多少能量
-            energy = 0
-            for m in range(len(constellation)):
-                energy += abs(constellation[m])**2
-            Es = energy / len(constellation)  #平均一個symbol有Es的能量
-            Eb = Es / K                       #平均一個bit有Eb能量
-            #因為沒有像space-time coding 一樣重複送data，所以Eb不會再變大
             No = Eb / snr[i]
 
             for m in range(Nt):  # 傳送端一次送出Nt個不同symbol
                 b = np.random.random()  # 產生一個 (0,1) uniform 分布的隨機變數
                 for n in range(len(constellation)):
                     if b <= (n+1)/len(constellation):
-                        symbol[m] = constellation[n]
+                        symbol[m,0] = constellation[n]
                         break
 
             # 先決定MIMO的通道矩陣
@@ -60,12 +81,9 @@ for k in range(4):
                     H[m, n] = 1 / np.sqrt(2) * np.random.randn() + 1j / np.sqrt(2) * np.random.randn()
 
             #接下來決定接收端收到的向量
-            for m in range(len(y)):
-                y[m] = 0
+            y = H * symbol
             for m in range(Nr):
-                for n in range(Nt):
-                    y[m] += H[m,n]*symbol[n]
-                y[m] += np.sqrt(No/2)*np.random.randn() + 1j*np.sqrt(No/2)*np.random.randn()
+                y[m,0] += np.sqrt(No/2)*np.random.randn() + 1j*np.sqrt(No/2)*np.random.randn()
 
             # 接下來進行ML detection
             # 找出傳送端所有可能送出的向量經過通道後的結果，並和目前收到的接收向量進行比較
@@ -87,59 +105,117 @@ for k in range(4):
                 Nr = H.shape[0]
                 if current == Nt:
                     # 找出detect向量和接收端收到的y向量間的距離
-                    detect_y = [0] * Nr  # detect_y為detect向量經過通道矩陣後的結果
-                    for i in range(Nr):
-                        for j in range(Nt):
-                            detect_y[i] += H[i, j] * detect[j]
+                    detect_y = H * detect# detect_y為detect向量經過通道矩陣後的結果
+
                     # 接下來找出detect_y向量和y向量間距
                     s = 0
                     for i in range(Nr):
-                        s += abs(y[i] - detect_y[i]) ** 2
-                    s = np.sqrt(s)
+                        s += abs(y[i,0] - detect_y[i,0]) ** 2
                     # 所以s 即為兩向量間的距離的平方
 
                     # 如果detect出來的結果比之前的結果好，就更新optimal_detection向量
                     if s < min_distance[0]:
                         min_distance[0] = s
                         for i in range(Nt):
-                            optimal_detection[i] = detect[i]
+                            optimal_detection[i,0] = detect[i,0]
                 else:
                     for i in range(len(constellation)):
-                        detect[current] = constellation[i]
+                        detect[current,0] = constellation[i]
                         ML_detection(H, detect, optimal_detection, y, current + 1, min_distance, constellation)
 
-
-            optimal_detection = [0]*Nt
-            detect = [0]*Nt
+            optimal_detection = np.matrix([0j]*Nt).T
+            detect = np.matrix([0j]*Nt).T
             min_distance = [10**9]
             # 利用遞迴函式來detect所有可能結果，並找出最佳解
             ML_detection(H, detect, optimal_detection, y, 0, min_distance, constellation)
 
             # 接下來看錯多少個symbol
-            if k==2 :#找BPSK錯幾個bit
+            if constellation_name == 'BPSK' :#找BPSK錯幾個bit
                 for m in range(Nt):
-                    if optimal_detection[m] != symbol[m] :
+                    if optimal_detection[m,0] != symbol[m,0] :
                         error += 1
-            elif k==3 :#找QPSK錯幾個bit
+            elif constellation_name == 'QPSK' :#找QPSK錯幾個bit
                 for m in range(Nt):
-                    if abs(optimal_detection[m].real - symbol[m].real) == 2:
+                    if abs(optimal_detection[m,0].real - symbol[m,0].real) == 2:
                         error += 1
-                    if abs(optimal_detection[m].imag - symbol[m].imag) == 2:
+                    if abs(optimal_detection[m,0].imag - symbol[m,0].imag) == 2:
                         error += 1
+            elif constellation_name == '16QAM':#找16QAM錯幾個bit
+                for m in range(Nt):
+                    if abs(optimal_detection[m,0].real - symbol[m,0].real) == 2 or abs(optimal_detection[m,0].real - symbol[m,0].real) == 6:
+                        error += 1
+                    elif abs(optimal_detection[m,0].real - symbol[m,0].real) == 4:
+                        error += 2
+                    if abs(optimal_detection[m,0].imag - symbol[m,0].imag) == 2 or abs(optimal_detection[m,0].imag - symbol[m,0].imag) == 6:
+                        error += 1
+                    elif abs(optimal_detection[m,0].imag - symbol[m,0].imag) == 4:
+                        error += 2
+            elif constellation_name == '64QAM':#找64QAM錯幾個bit
+                for m in range(Nt):
+                    if abs(optimal_detection[m,0].real - symbol[m,0].real) == 2 or abs(optimal_detection[m,0].real - symbol[m,0].real) == 6 or abs(optimal_detection[m,0].real - symbol[m,0].real) == 14:
+                        error += 1
+                    elif abs(optimal_detection[m,0].real - symbol[m,0].real) == 4 or abs(optimal_detection[m,0].real - symbol[m,0].real) == 8 or abs(optimal_detection[m,0].real - symbol[m,0].real) == 12:
+                        error += 2
+                    elif abs(optimal_detection[m,0].real - symbol[m,0].real) == 10:
+                        error += 3
+                    if abs(optimal_detection[m,0].imag - symbol[m,0].imag) == 2 or abs(optimal_detection[m,0].imag - symbol[m,0].imag) == 6 or abs(optimal_detection[m,0].imag - symbol[m,0].imag) == 14:
+                        error += 1
+                    elif abs(optimal_detection[m,0].imag - symbol[m,0].imag) == 4 or abs(optimal_detection[m,0].imag - symbol[m,0].imag) == 8 or abs(optimal_detection[m,0].imag - symbol[m,0].imag) == 12:
+                        error += 2
+                    elif abs(optimal_detection[m,0].imag - symbol[m,0].imag) == 10:
+                        error += 3
 
-        ber[i] = error / (K*Nt*N) #因為一個symbol有k個bit
+
+        ber[i] = error / (K*Nt*N) #因為一個symbol有K個bit
 
     if k==0 :
-        plt.semilogy(snr_db,ber,marker='o',label='theory (Nt=1 , Nr=1)')
+        plt.semilogy(snr_db,ber,marker='o',label='theory (Nt=1 , Nr=1) SISO for BPSK')
     elif k==1 :
-        plt.semilogy(snr_db, ber, marker='o', label='theory (Nt=1 , Nr=2  MRC)')
+        None
+        #plt.semilogy(snr_db, ber, marker='o', label='theory (Nt=1 , Nr=2)  MRC for BPSK')
     elif k==2 :
-        plt.semilogy(snr_db, ber, marker='o', label='ML detection for BPSK (Nt=2 , Nr=2 )')
+        plt.semilogy(snr_db, ber, marker='o', label='ML detection for {0} (Nt={1} , Nr={2} )'.format(constellation_name,Nt,Nr))
+        # 將錯誤率的數據存成檔案
+        if N >= 1000000:   # 在很多點模擬分析的情況下，錯誤率較正確，我們可以將數據存起來，之後就不用在花時間去模擬
+            with open('ML detection for {0} (Nt={1}, Nr={2}).dat'.format(constellation_name,Nt,Nr),'w') as f:
+                f.write('snr_db\n')
+                for m in range(len(snr_db)):
+                    f.write("{0} ".format(snr_db[m]))
+                f.write('\nber\n')
+                for m in range(len(snr_db)):
+                    f.write("{0} ".format(ber[m]))
+    '''  #以下部分可省略
     elif k==3 :
-        plt.semilogy(snr_db, ber, marker='o', label='ML detection for QPSK (Nt=2 , Nr=2 )')
+        plt.semilogy(snr_db, ber, marker='o', label='ML detection for {0} (Nt=2 , Nr=2 )'.format(constellation_name))
+        print('snr_db for {0}'.format(constellation_name))
+        print(snr_db)
+        print('ber for {0}'.format(constellation_name))
+        print(ber)
+    '''
+
+#結束時間，並統計程式執行時間 (可以利用跑少數個點的所需時間，來估計完整模擬的實際所需時間)
+tend = time.time()
+total_time = tend - tstart
+total_time = int(total_time)
+day = 0
+hour = 0
+min = 0
+sec = 0
+if(total_time > 24*60*60):
+    day = total_time // (24*60*60)
+    total_time %= (24*60*60)
+if(total_time > 60*60):
+    hour = total_time // (60*60)
+    total_time %= (60*60)
+if(total_time > 60):
+    min = total_time // 60
+    total_time %= 60
+sec = float(total_time) + (tend - tstart) - int(tend - tstart)
+print("spend {0} day, {1} hour, {2} min, {3:0.3f} sec".format(day,hour,min,sec))
 
 plt.xlabel('Eb/No , dB')
 plt.ylabel('ber')
 plt.legend()
 plt.grid(True,which='both')
 plt.show()
+
