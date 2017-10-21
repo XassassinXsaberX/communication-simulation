@@ -94,7 +94,7 @@ for k in range(6):
                         elif k == 3:
                             plt.semilogy(snr_db_list, ber_list, marker='o', label='MMSE, Nt={0}, Nr={1}, for {2}'.format(Nt_select, Nr, constellation_name))
                         f.close()   # 關閉檔案
-                        break;
+                        break
 
                 # 若data資料夾中沒有此模擬的數據就要真的來模擬了
                 # 這裡採用 Nt_select x Nr 的MIMO系統，所以通道矩陣為 Nr x Nt_select

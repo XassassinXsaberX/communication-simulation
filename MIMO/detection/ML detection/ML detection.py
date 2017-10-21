@@ -11,9 +11,6 @@ ber = [0]*13
 N = 10000  #執行N次來找錯誤率
 Nt = 2       #傳送端天線數
 Nr = 2       #接收端天線數
-for i in range(len(snr_db)):
-    snr_db[i] = 3*i
-    snr[i] = np.power(10,snr_db[i]/10)
 
 #這裡採用 Nt x Nr 的MIMO系統，所以通道矩陣為 Nr x Nt
 H = [[0j]*Nt for i in range(Nr)]
@@ -24,10 +21,11 @@ y = np.matrix([0j]*Nr).T       #接收端的向量
 # 定義BPSK星座點
 constellation = [1,-1]
 constellation_name = 'BPSK'
-'''
+
 # 定義QPSK星座點
 constellation = [1+1j, 1-1j, -1+1j, -1-1j]
 constellation_name = 'QPSK'
+'''
 # 定義16QAM星座點
 constellation = [1+1j,1+3j,3+1j,3+3j,-1+1j,-1+3j,-3+1j,-3+3j,-1-1j,-1-3j,-3-1j,-3-3j,1-1j,1-3j,3-1j,3-3j]
 constellation_name = '16QAM'
@@ -40,7 +38,22 @@ constellation = []
 for i in range(len(constellation_new)):
     for j in range(len(constellation_new)):
         constellation += [constellation_new[i] + 1j * constellation_new[j]]
-    '''
+'''
+
+# 在terminal顯示目前是跑哪一種調變的模擬，而且跑幾個點
+print('{0}模擬 , N={1}'.format(constellation_name, N))
+
+# 根據不同的調變設定snr 間距
+for i in range(len(snr)):
+    if constellation_name == 'QPSK':
+        snr_db[i] = 2 * i
+    elif constellation_name == '16QAM':
+        snr_db[i] = 2.5 * i
+    elif constellation_name == '64QAM':
+        snr_db[i] = 3 * i
+    else:
+        snr_db[i] = 2 * i
+    snr[i] = np.power(10, snr_db[i] / 10)
 
 
 K = int(np.log2(len(constellation))) #代表一個symbol含有K個bit
@@ -51,7 +64,6 @@ for m in range(len(constellation)):
 Es = energy / len(constellation)  #平均一個symbol有Es的能量
 Eb = Es / K                       #平均一個bit有Eb能量
 #因為沒有像space-time coding 一樣重複送data，所以Eb不會再變大
-
 
 
 for k in range(3):

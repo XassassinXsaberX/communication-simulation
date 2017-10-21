@@ -6,18 +6,15 @@ import time
 # 開始記時
 tstart = time.time()
 
-snr_db = [0] * 12
-snr = [0] * 12
-ber = [0] * 12
-visited_node = [0]*12
-add_computation = [0]*12   # 用來記錄平均加法次數
-mult_computation = [0]*12  # 用來記錄平均乘法次數
+snr_db = [0] * 13
+snr = [0] * len(snr_db)
+ber = [0] * len(snr_db)
+visited_node = [0] * len(snr_db)
+add_computation = [0] * len(snr_db)   # 用來記錄平均加法次數
+mult_computation = [0] * len(snr_db)  # 用來記錄平均乘法次數
 Nt = 2  # 傳送端天線數
 Nr = 2  # 接收端天線數
-N = 1000000  # 執行N次來找錯誤率
-for i in range(len(snr)):
-    snr_db[i] = 2 * i
-    snr[i] = np.power(10, snr_db[i] / 10)
+N = 1000  # 執行N次來找錯誤率
 
 # 這裡採用 Nt x Nr 的MIMO系統，所以原本通道矩陣為 Nr x Nt
 # 但在sphere decoding中，因為我們會將向量取實部、虛部來組合，所以通道矩陣也會跟著變成2Nr x 2Nt 矩陣
@@ -30,29 +27,58 @@ symbol_new = np.matrix([0j]*2*Nt).transpose()  # 除此之外我們還採用將�
 y = np.matrix([0j] * Nr).transpose()           # 接收端的向量
 y_new = np.matrix([0j]*2*Nr).transpose()       # 將接收端的向量，對其取實部、虛部重新組合後得到的新向量
 
-
-# 定義星座點，QPSK symbol值域為{1+j , 1-j , -1+j , -1-j }
-# 則實部、虛部值域皆為{ -1, 1 }
-constellation = [1 + 1j, 1 - 1j, -1 + 1j, -1 - 1j]
-constellation_new = [-1, 1]
-constellation_name = 'QPSK'
-
-'''
-# 定義星座點，16QAM symbol值域為{1+1j,1+3j,3+1j,3+3j,-1+1j,-1+3j,-3+1j,-3+3j,-1-1j,-1-3j,-3-1j,-3-3j,1-1j,1-3j,3-1j,3-3j }
-# 則實部、虛部值域皆為{ -3, -1, 1, 3}
-constellation = [1+1j,1+3j,3+1j,3+3j,-1+1j,-1+3j,-3+1j,-3+3j,-1-1j,-1-3j,-3-1j,-3-3j,1-1j,1-3j,3-1j,3-3j]
-constellation_new = [-3, -1, 1, 3]
-constellation_name = '16QAM'
-
+# 利用constellation_num決定要用哪種星座點
+constellation_num = 3
+if constellation_num == 1:
+    # 定義星座點，QPSK symbol值域為{1+j , 1-j , -1+j , -1-j }
+    # 則實部、虛部值域皆為{ -1, 1 }
+    constellation = [1 + 1j, 1 - 1j, -1 + 1j, -1 - 1j]
+    constellation_new = [-1, 1]
+    constellation_name = 'QPSK'
+elif constellation_num == 2:
+    # 定義星座點，16QAM symbol值域為{1+1j,1+3j,3+1j,3+3j,-1+1j,-1+3j,-3+1j,-3+3j,-1-1j,-1-3j,-3-1j,-3-3j,1-1j,1-3j,3-1j,3-3j }
+    # 則實部、虛部值域皆為{ -3, -1, 1, 3}
+    constellation = [1+1j,1+3j,3+1j,3+3j,-1+1j,-1+3j,-3+1j,-3+3j,-1-1j,-1-3j,-3-1j,-3-3j,1-1j,1-3j,3-1j,3-3j]
+    constellation_new = [-3, -1, 1, 3]
+    constellation_name = '16QAM'
+elif constellation_num == 3:
 # 定義64QAM星座點
-constellation_new = [-7, -5, -3, -1, 1, 3, 5, 7]
-constellation_name = '64QAM'
-constellation = []
-for i in range(len(constellation_new)):
-    for j in range(len(constellation_new)):
-        constellation += [constellation_new[i] + 1j * constellation_new[j]]
-        '''
+    constellation_new = [-7, -5, -3, -1, 1, 3, 5, 7]
+    constellation_name = '64QAM'
+    constellation = []
+    for i in range(len(constellation_new)):
+        for j in range(len(constellation_new)):
+            constellation += [constellation_new[i] + 1j * constellation_new[j]]
 
+
+# 在terminal顯示目前是跑哪一種調變的模擬，而且跑幾個點
+print('{0}模擬 , N={1}'.format(constellation_name, N))
+# 定義way為路徑搜尋的方式
+# 1代表DFS、2代表Best First Search、3代表BFS(Breadth-First-Search)其中K1為最多搜尋的節點數
+way = 2
+K1 = 4
+if way == 1:
+    way_name = 'DFS'
+    print(way_name)
+elif way == 2:
+    way_name = 'Best First Search'
+    print(way_name)
+elif way == 3:
+    way_name = 'BFS'
+    print('BFS , K={0}'.format(K1))
+
+
+# 根據不同的調變設定snr 間距
+for i in range(len(snr)):
+    if constellation_name == 'QPSK':
+        snr_db[i] = 2 * i
+    elif constellation_name == '16QAM':
+        snr_db[i] = 2.5 * i
+    elif constellation_name == '64QAM':
+        snr_db[i] = 3 * i
+    else:
+        snr_db[i] = 2 * i
+    snr[i] = np.power(10, snr_db[i] / 10)
 
 K = int(np.log2(len(constellation)))  # 代表一個symbol含有K個bit
 # 接下來要算平均一個symbol有多少能量
@@ -63,9 +89,6 @@ Es = energy / len(constellation)      # 平均一個symbol有Es的能量
 Eb = Es / K                           # 平均一個bit有Eb能量
 # 因為沒有像space-time coding 一樣重複送data，所以Eb不會再變大
 
-
-plt.figure('BER')
-plt.figure('Average visited node')
 
 for k in range(2):
     for i in range(len(snr_db)):
@@ -178,7 +201,7 @@ for k in range(2):
 
                         ML_detection(H, detect, optimal_detection, y, current + 1, min_distance, complexity, constellation)
 
-            def best_first_search(R, opimal_detection, N, complexity, constellation): # best first serach 其實類似BFS search，只不過變為priority queue
+            def best_first_search(R, optimal_detection, N, complexity, constellation): # best first serach 其實類似BFS search，只不過變為priority queue
                 # R為H進行QR分解後的R矩陣、optimal_detection向量為最終detection後得到的結果
                 # N為傳送向量長度
                 # complexity有3個元素，分別記錄經過幾個node、做幾次加法運算、做幾次乘法運算
@@ -252,14 +275,14 @@ for k in range(2):
                     optimal_detection[i,0] = first_element[1][i,0]
 
 
-            def sphere_decoding_bfs(R, optimal_detection, K, N, complexity, constellation):
+            def sphere_decoding_bfs(R, optimal_detection, K1, N, complexity, constellation):
                 # R為H進行QR分解後的R矩陣、optimal_detection向量為最終detection後得到的結果
-                # K為BFS搜尋中最多准許有幾個node出現
+                # K1為BFS搜尋中最多准許有幾個node出現
                 # N為傳送向量長度
                 # complexity有3個元素，分別記錄經過幾個node、做幾次加法運算、做幾次乘法運算
                 # constellation為星座圖，也就是向量中元素的值域
 
-                # 此處的bfs比較特別，這種bfs在搜尋一層樹時，只會選擇其中K個node，所以我用priority queue來決定要選擇哪K個node
+                # 此處的bfs比較特別，這種bfs在搜尋一層樹時，只會選擇其中K1個node，所以我用priority queue來決定要選擇哪K1個node
                 queue = [[],[]]
                 # 有兩個queue，a是要負責pop元素，b則push元素
                 # 等到其中a  queue的元素pop完後
@@ -293,11 +316,11 @@ for k in range(2):
 
                     count = 0  # count用來紀錄queue[current] 目前pop幾個元素
                     while True: # 將queue[current]的元素pop出來，並根據此pop出來的元素從tree的下層選出其他節點加到queue[(current+1)%2]中
-                                # 注意到queue[current]最多只會pop K個node
+                                # 注意到queue[current]最多只會pop K1個node
 
                         if len(queue[current]) == 0:  # 若該queue的元素都pop出來了，就直接break
                             break
-                        elif count >= K:               # 若已經從queue[current]中pop K個元素
+                        elif count >= K1:               # 若已經從queue[current]中pop K1個元素
                             # 將queue[current]清空後在break
                             while True:
                                 heapq.heappop(queue[current])
@@ -371,20 +394,26 @@ for k in range(2):
                 min_metric = [10 ** 9]     # 若採用不決定球半徑的方法時
 
                 # 以下提供3種最基本的sphere decoding detection
-                #sphere_decoding_dfs(R, detect, optimal_detection,  2*Nt, 2*Nt-1, 0, min_metric, complexity,  constellation_new)  # 花最多時間
-                best_first_search(R, optimal_detection, 2*Nt, complexity, constellation_new)  # 花最少時間
-                #sphere_decoding_bfs(R, optimal_detection, 2, 2*Nt, complexity, constellation_new) # 花少一點時間
+                if way == 1:
+                    sphere_decoding_dfs(R, detect, optimal_detection,  2*Nt, 2*Nt-1, 0, min_metric, complexity,  constellation_new)  # 花最多時間，可達到最佳錯誤率
+                elif way == 2:
+                    best_first_search(R, optimal_detection, 2*Nt, complexity, constellation_new)  # 花最少時間，可達到最佳錯誤率
+                elif way == 3:
+                    sphere_decoding_bfs(R, optimal_detection, K1, 2*Nt, complexity, constellation_new)  # 花少一點時間，不一定能達到最佳錯誤率
 
 
             elif k == 1:
                 # 使用ML detection
-                detect = np.matrix([0j] * (Nt*2)).transpose()
-                optimal_detection = np.matrix([0j] * (Nt*2)).transpose()
-                min_distance = [10 ** 9]
-                ML_detection(H_new, detect, optimal_detection, y_new, 0, min_distance, complexity, constellation_new)
+                # 我們已經有先前的模擬結果了，不要再花時間跑了
+                None
+                #detect = np.matrix([0j] * (Nt*2)).transpose()
+                #optimal_detection = np.matrix([0j] * (Nt*2)).transpose()
+                #min_distance = [10 ** 9]
+                #ML_detection(H_new, detect, optimal_detection, y_new, 0, min_distance, complexity, constellation_new)
 
 
-
+            if k == 1:   # 因為不用真的去做ML detection的模擬，所以也不用花時間找錯幾個bit
+                continue
 
             if constellation_name == 'QPSK':  # 計算QPSK錯幾個bit
                 for m in range(len(symbol_new)):
@@ -396,21 +425,14 @@ for k in range(2):
                         error += 1
                     if abs(optimal_detection[m,0] - symbol_new[m,0]) == 4:
                         error += 2
-            elif constellation_name == '64QAM':#找64QAM錯幾個bit
-                for m in range(Nt):
-                    if abs(optimal_detection[m,0].real - symbol[m,0].real) == 2 or abs(optimal_detection[m,0].real - symbol[m,0].real) == 6 or abs(optimal_detection[m,0].real - symbol[m,0].real) == 14:
+            elif constellation_name == '64QAM':  # 找64QAM錯幾個bit
+                for m in range(len(symbol_new)):
+                    if abs(optimal_detection[m,0] - symbol_new[m,0]) == 2 or abs(optimal_detection[m,0] - symbol_new[m,0]) == 6 or abs(optimal_detection[m,0] - symbol_new[m,0]) == 14:
                         error += 1
-                    elif abs(optimal_detection[m,0].real - symbol[m,0].real) == 4 or abs(optimal_detection[m,0].real - symbol[m,0].real) == 8 or abs(optimal_detection[m,0].real - symbol[m,0].real) == 12:
+                    elif abs(optimal_detection[m,0] - symbol_new[m,0]) == 4 or abs(optimal_detection[m,0] - symbol_new[m,0]) == 8 or abs(optimal_detection[m,0] - symbol_new[m,0]) == 12:
                         error += 2
-                    elif abs(optimal_detection[m,0].real - symbol[m,0].real) == 10:
+                    elif abs(optimal_detection[m,0] - symbol_new[m,0]) == 10:
                         error += 3
-                    if abs(optimal_detection[m,0].imag - symbol[m,0].imag) == 2 or abs(optimal_detection[m,0].imag - symbol[m,0].imag) == 6 or abs(optimal_detection[m,0].imag - symbol[m,0].imag) == 14:
-                        error += 1
-                    elif abs(optimal_detection[m,0].imag - symbol[m,0].imag) == 4 or abs(optimal_detection[m,0].imag - symbol[m,0].imag) == 8 or abs(optimal_detection[m,0].imag - symbol[m,0].imag) == 12:
-                        error += 2
-                    elif abs(optimal_detection[m,0].imag - symbol[m,0].imag) == 10:
-                        error += 3
-
 
 
         ber[i] = error / (K * Nt * N)  # 除以K是因為一個symbol有K個bits
@@ -419,19 +441,47 @@ for k in range(2):
         mult_computation[i] = complexity[2] / N
 
     if k == 0:
-        plt.figure('BER')
-        plt.semilogy(snr_db, ber, marker='o', label='{0} (sphere decoding)'.format(constellation_name))
-        plt.figure('Average visited node')
-        plt.plot(snr_db, visited_node, marker='o', label='{0} (sphere decoding)'.format(constellation_name))
-        plt.figure('Addition complexity')
-        plt.plot(snr_db, add_computation, marker='o', label='{0} (sphere decoding)'.format(constellation_name))
-        plt.figure('Multiplication complexity')
-        plt.plot(snr_db, mult_computation, marker='o', label='{0} (sphere decoding)'.format(constellation_name))
+        if way == 3:   # 若採用BFS搜尋
+            plt.figure('BER, {0}, K={1}'.format(way_name, K1))
+            plt.semilogy(snr_db, ber, marker='o', label='{0} (sphere decoding) , K={1}'.format(constellation_name, K1))
+            plt.figure('Average visited node, {0}, K={1}'.format(way_name, K1))
+            plt.plot(snr_db, visited_node, marker='o', label='{0} (sphere decoding) , K={1}'.format(constellation_name, K1))
+            plt.figure('Addition complexity, {0}, K={1}'.format(way_name, K1))
+            plt.plot(snr_db, add_computation, marker='o', label='{0} (sphere decoding) , K={1}'.format(constellation_name, K1))
+            plt.figure('Multiplication complexity, {0}, K={1}'.format(way_name, K1))
+            plt.plot(snr_db, mult_computation, marker='o', label='{0} (sphere decoding) , K={1}'.format(constellation_name, K1))
+        else:
+            plt.figure('BER, {0}'.format(way_name))
+            plt.semilogy(snr_db, ber, marker='o', label='{0} (sphere decoding)'.format(constellation_name))
+            plt.figure('Average visited node, {0}'.format(way_name))
+            plt.plot(snr_db, visited_node, marker='o', label='{0} (sphere decoding)'.format(constellation_name))
+            plt.figure('Addition complexity, {0}'.format(way_name))
+            plt.plot(snr_db, add_computation, marker='o', label='{0} (sphere decoding)'.format(constellation_name))
+            plt.figure('Multiplication complexity, {0}'.format( way_name))
+            plt.plot(snr_db, mult_computation, marker='o', label='{0} (sphere decoding)'.format(constellation_name))
     elif k == 1:
-        plt.figure('BER')
-        plt.semilogy(snr_db, ber, marker='o', label='{0} (ML decoding)'.format(constellation_name))
-        plt.figure('Average visited node')
-        plt.plot(snr_db, visited_node, marker='o', label='{0} (ML decoding)'.format(constellation_name))
+        # 我們先前就已完成ML detection的模擬，直接拿來用吧
+        with open('../ML detection/data/ML detection for {0} (Nt={1}, Nr={2}).dat'.format(constellation_name, Nt, Nr)) as f:
+            # 以下的步驟都是讀取數據
+            f.readline()  # 這一行讀取到字串 "snr_db"
+            snr_db_string = f.readline()[:-2]  # 這一行讀取到的是各個 snr 組成的字串
+            snr_db_list = snr_db_string.split(' ')  # 將各snr 組成的字串分開
+            for m in range(len(snr_db_list)):
+                snr_db_list[m] = float(snr_db_list[m])
+            f.readline()  # 這一行讀取到字串 "ber"
+            ber_string = f.readline()[:-1]  # 這一行讀取到的是個個 ber 組成的字串
+            ber_list = ber_string.split(' ')  # 將各個ber 組成的字串分開
+            for m in range(len(ber_list)):
+                ber_list[m] = float(ber_list[m])
+
+        if way == 3:
+            plt.figure('BER, {0}, K={1}'.format(way_name, K1))
+        else:
+            plt.figure('BER, {0}'.format(way_name))
+        plt.semilogy(snr_db_list, ber_list, marker='o', label='{0} (ML decoding)'.format(constellation_name))
+        #plt.semilogy(snr_db, ber, marker='o', label='{0} (ML decoding)'.format(constellation_name))
+        #plt.figure('Average visited node')
+        #plt.plot(snr_db, visited_node, marker='o', label='{0} (ML decoding)'.format(constellation_name))
 
 
 #結束時間，並統計程式執行時間 (可以利用跑少數個點的所需時間，來估計完整模擬的實際所需時間)
@@ -454,26 +504,37 @@ if(total_time > 60):
 sec = float(total_time) + (tend - tstart) - int(tend - tstart)
 print("spend {0} day, {1} hour, {2} min, {3:0.3f} sec".format(day,hour,min,sec))
 
-
-plt.figure('BER')
+if way == 3:
+    plt.figure('BER, {0}, K={1}'.format(way_name, K1))
+else:
+    plt.figure('BER, {0}'.format(way_name))
 plt.xlabel('Eb/No , dB')
 plt.ylabel('ber')
 plt.legend()
 plt.grid(True, which='both')
 
-plt.figure('Average visited node')
+if way == 3:
+    plt.figure('Average visited node, {0}, K={1}'.format(way_name, K1))
+else:
+    plt.figure('Average visited node, {0}'.format(way_name))
 plt.xlabel('Eb/No , dB')
 plt.ylabel('Average visited node')
 plt.legend()
 plt.grid(True, which='both')
 
-plt.figure('Addition complexity')
+if way == 3:
+    plt.figure('Addition complexity, {0}, K={1}'.format(way_name, K1))
+else:
+    plt.figure('Addition complexity, {0}'.format(way_name))
 plt.xlabel('Eb/No , dB')
 plt.ylabel('Average number of additions')
 plt.legend()
 plt.grid(True, which='both')
 
-plt.figure('Multiplication complexity')
+if way == 3:
+    plt.figure('Multiplication complexity, {0}, K={1}'.format(way_name, K1))
+else:
+    plt.figure('Multiplication complexity, {0}'.format(way_name))
 plt.xlabel('Eb/No , dB')
 plt.ylabel('Average number of multiplications')
 plt.legend()
