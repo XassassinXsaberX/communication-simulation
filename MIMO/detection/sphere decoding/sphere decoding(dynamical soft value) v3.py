@@ -30,7 +30,7 @@ y_new = np.matrix([0j]*2*Nr).transpose()       # 將接收端的向量，對其�
 
 
 # 利用constellation_num決定要用哪種星座點
-constellation_num = 3
+constellation_num = 1
 if constellation_num == 1:
     # 定義星座點，QPSK symbol值域為{1+j , 1-j , -1+j , -1-j }
     # 則實部、虛部值域皆為{ -1, 1 }
@@ -53,14 +53,16 @@ elif constellation_num == 3:
             constellation += [constellation_new[i] + 1j * constellation_new[j]]
 
 
-soft = 4 # 選擇幾個soft 值
+soft = 8 # 選擇幾個soft 值 (沒屁用了)
+soft_vector = [1,1,2,2]  # 會決定每一層要搜尋幾個節點
+
 
 # 在terminal顯示目前是跑哪一種調變的模擬，而且跑幾個點
-print('{0}模擬 , N={1} , soft = {2}'.format(constellation_name, N, soft))
+print('{0}模擬 , N={1} , soft_vector = {2}'.format(constellation_name, N, soft_vector))
 # 定義way為路徑搜尋的方式
 # 1代表DFS、2代表Best First Search、3代表BFS(Breadth-First-Search)其中K1為最多搜尋的節點數
-way = 1
-K1 = 12
+way = 3
+K1 = 4
 if way == 1:
     way_name = 'DFS'
     print(way_name)
@@ -129,8 +131,9 @@ for k in range(2):
 
 
             # 接下要先定義如何sphere decoding (DFS版本)
-            def sphere_decoding_dfs(R, zf, K, detect, optimal_detection, N, current, accumulated_metric, min_metric, complexity, constellation):
+            def sphere_decoding_dfs(R, zf, K, soft_vector, detect, optimal_detection, N, current, accumulated_metric, min_metric, complexity, constellation):
                 # R為H進行QR分解後的R矩陣、zf向量為zero forcing detection後尚未demapping的結果、K為選擇branch時要選擇離soft value最近的K個節點
+                # soft_vector 有N個元素，用來決定不同tree level時要搜尋幾個節點
                 # detect向量代表傳送端可能送出的向量(會藉由遞迴來不斷改變)
                 # optimal_detection向量為最終detection後得到的結果
                 # N為傳送向量長度、current為目前遞迴到的位置
@@ -138,6 +141,7 @@ for k in range(2):
                 # complexity有3個元素，分別記錄經過幾個node、做幾次加法運算、做幾次乘法運算
                 # constellation為星座圖，也就是向量中元素的值域
 
+                K = soft_vector[current]                   # 在這一層的tree level要搜尋幾個節點
                 if current < 0:
                     if accumulated_metric < min_metric[0]:  # 如果該條路徑終點的metric總和是目前metric中的最小值，則很有可能是答案，存起來！
                         min_metric[0] = accumulated_metric
@@ -195,7 +199,7 @@ for k in range(2):
                             complexity[1] += 1       # 將metric值累加，算一次加法運算
 
                         if metric < min_metric[0]:  # 只有在"目前累積metric" 小於 "最小metric"的情況下才能繼續遞迴往下搜尋
-                            sphere_decoding_dfs(R, zf, K, detect, optimal_detection, N, current - 1, metric, min_metric, complexity, constellation)
+                            sphere_decoding_dfs(R, zf, K, soft_vector, detect, optimal_detection, N, current - 1, metric, min_metric, complexity, constellation)
 
 
             # 我們也定義一個ML detection
@@ -230,15 +234,18 @@ for k in range(2):
 
                         ML_detection(H, detect, optimal_detection, y, current + 1, min_distance, complexity, constellation)
 
-            def best_first_search(R, zf, K, optimal_detection, N, complexity, constellation): # best first serach 其實類似BFS search，只不過變為priority queue
+            def best_first_search(R, zf, K, soft_vector, optimal_detection, N, complexity, constellation): # best first serach 其實類似BFS search，只不過變為priority queue
                 # R為H進行QR分解後的R矩陣
-                # zf向量為zero forcing detection後尚未demapping的結果、K為選擇branch時要選擇離soft value最近的K個節點
+                # zf向量為zero forcing detection後尚未demapping的結果
+                # K為選擇branch時要選擇離soft value最近的K個節點、soft_vector 有N個元素，用來決定不同tree level時要搜尋幾個節點
                 # optimal_detection向量為最終detection後得到的結果
                 # N為傳送向量長度
                 # complexity有3個元素，分別記錄經過幾個node、做幾次加法運算、做幾次乘法運算
                 # constellation為星座圖，也就是向量中元素的值域
 
                 priority_queue = []
+
+                K = soft_vector[N-1]    # 在tree最上層要搜尋soft_vector[N-1]個節點
 
                 # tree的第一層時對應到的soft value為zf[N-1, 0]
                 # 我們接下來要看哪些星座點離zf[N-1, 0]最近
@@ -293,6 +300,8 @@ for k in range(2):
                     # first_element[0] 存放上一層的accumulated_metric
                     # first_element[1] 存放上一層的vector
                     # first_element[2] 則代表上一層的vector有幾個元素
+
+                    K = soft_vector[N - 1 - first_element[2]]   # 這一層要搜尋K個節點
 
                     if first_element[2] == N: # 若搜尋完畢
                         break
@@ -353,8 +362,9 @@ for k in range(2):
                     optimal_detection[i,0] = first_element[1][i,0]
 
 
-            def sphere_decoding_bfs(R, zf, K, optimal_detection, K1, N, complexity, constellation):
+            def sphere_decoding_bfs(R, zf, K, soft_vector, optimal_detection, K1, N, complexity, constellation):
                 # R為H進行QR分解後的R矩陣、zf向量為zero forcing detection後尚未demapping的結果、K為選擇branch時要選擇離soft value最近的K個節點
+                # soft_vector 有N個元素，用來決定不同tree level時要搜尋幾個節點
                 # optimal_detection向量為最終detection後得到的結果、K1為BFS搜尋中最多准許有幾個node出現
                 # N為傳送向量長度
                 # complexity有3個元素，分別記錄經過幾個node、做幾次加法運算、做幾次乘法運算
@@ -368,6 +378,8 @@ for k in range(2):
                 # 換b queue pop元素，a  queue push元素
 
                 current = 0 # 利用current來決定目前是哪個queue要pop元素
+
+                K = soft_vector[N - 1]  # 在tree最上層要搜尋soft_vector[N-1]個節點
 
                 # tree的第一層時對應到的soft value為zf[N-1, 0]
                 # 我們接下來要看哪些星座點離zf[N-1, 0]最近
@@ -438,6 +450,8 @@ for k in range(2):
                         # first_element[2] 則代表上一層的vector有幾個元素
 
                         count += 1  # 因為queue[current] pop出一個元素了
+
+                        K = soft_vector[N - 1 - first_element[2]]  # 這一層要搜尋K個節點
 
                         if first_element[2] == N: # 代表BFS已搜尋到樹的最底端，搜尋結束
                             break
@@ -521,11 +535,11 @@ for k in range(2):
 
                 # 以下提供3種最基本的sphere decoding detection
                 if way == 1:
-                    sphere_decoding_dfs(R, s, soft, detect, optimal_detection, 2*Nt, 2*Nt-1, 0, min_metric, complexity, constellation_new) # 花一點時間
+                    sphere_decoding_dfs(R, s, soft, soft_vector, detect, optimal_detection, 2*Nt, 2*Nt-1, 0, min_metric, complexity, constellation_new) # 花一點時間
                 elif way == 2:
-                    best_first_search(R, s, soft, optimal_detection, 2*Nt, complexity, constellation_new) # 花最少時間
+                    best_first_search(R, s, soft, soft_vector, optimal_detection, 2*Nt, complexity, constellation_new) # 花最少時間
                 elif way == 3:
-                    sphere_decoding_bfs(R, s, soft, optimal_detection, K1, 2*Nt, complexity, constellation_new)  # 花超多時間
+                    sphere_decoding_bfs(R, s, soft, soft_vector, optimal_detection, K1, 2*Nt, complexity, constellation_new)  # 花超多時間
 
 
             elif k == 1:
@@ -572,27 +586,27 @@ for k in range(2):
 
     if k == 0:
         if way == 3:   # 若採用BFS搜尋
-            plt.figure('BER({0}), soft={1}, {2}, K={3}'.format(constellation_name, soft, way_name, K1))
-            plt.semilogy(snr_db, ber, marker='o', label='{0} (sphere decoding) soft = {1}, K={2}'.format(constellation_name, soft, K1))
-            plt.figure('Average visited node({0}), soft={1}, {2}, K={3}'.format(constellation_name, soft, way_name, K1))
-            plt.plot(snr_db, visited_node, marker='o', label='{0} (sphere decoding) soft={1}, K={2}'.format(constellation_name, soft, K1))
-            plt.figure('Addition complexity({0}), soft={1}, {2}, K={3}'.format(constellation_name, soft, way_name, K1))
-            plt.plot(snr_db, add_computation, marker='o', label='{0} (sphere decoding) soft={1}, K={2}'.format(constellation_name, soft, K1))
-            plt.figure('Multiplication complexity({0}), soft={1}, {2}, K={3}'.format(constellation_name, soft, way_name, K1))
-            plt.plot(snr_db, mult_computation, marker='o', label='{0} (sphere decoding) soft={1}, K={2}'.format(constellation_name, soft, K1))
+            plt.figure('BER({0}), soft_vector={1}, {2}, K={3}'.format(constellation_name, soft_vector, way_name, K1))
+            plt.semilogy(snr_db, ber, marker='o', label='{0} (sphere decoding) soft_vector = {1}, K={2}'.format(constellation_name, soft_vector, K1))
+            plt.figure('Average visited node({0}), soft_vector={1}, {2}, K={3}'.format(constellation_name, soft_vector, way_name, K1))
+            plt.plot(snr_db, visited_node, marker='o', label='{0} (sphere decoding) soft_vector={1}, K={2}'.format(constellation_name, soft_vector, K1))
+            plt.figure('Addition complexity({0}), soft_vector={1}, {2}, K={3}'.format(constellation_name, soft_vector, way_name, K1))
+            plt.plot(snr_db, add_computation, marker='o', label='{0} (sphere decoding) soft_vector={1}, K={2}'.format(constellation_name, soft_vector, K1))
+            plt.figure('Multiplication complexity({0}), soft_vector={1}, {2}, K={3}'.format(constellation_name, soft_vector, way_name, K1))
+            plt.plot(snr_db, mult_computation, marker='o', label='{0} (sphere decoding) soft_vector={1}, K={2}'.format(constellation_name, soft_vector, K1))
         else:
-            plt.figure('BER({0}), soft={1}, {2}'.format(constellation_name, soft, way_name))
-            plt.semilogy(snr_db, ber, marker='o', label='{0} (sphere decoding) soft = {1}'.format(constellation_name, soft))
-            plt.figure('Average visited node({0}), soft={1}, {2}'.format(constellation_name, soft, way_name))
-            plt.plot(snr_db, visited_node, marker='o', label='{0} (sphere decoding) soft={1}'.format(constellation_name, soft))
-            plt.figure('Addition complexity({0}), soft={1}, {2}'.format(constellation_name, soft, way_name))
-            plt.plot(snr_db, add_computation, marker='o', label='{0} (sphere decoding) soft={1}'.format(constellation_name, soft))
-            plt.figure('Multiplication complexity({0}), soft={1}, {2}'.format(constellation_name, soft, way_name))
-            plt.plot(snr_db, mult_computation, marker='o', label='{0} (sphere decoding) soft={1}'.format(constellation_name, soft))
+            plt.figure('BER({0}), soft_vector={1}, {2}'.format(constellation_name, soft_vector, way_name))
+            plt.semilogy(snr_db, ber, marker='o', label='{0} (sphere decoding) soft_vector = {1}'.format(constellation_name, soft_vector))
+            plt.figure('Average visited node({0}), soft_vector={1}, {2}'.format(constellation_name, soft_vector, way_name))
+            plt.plot(snr_db, visited_node, marker='o', label='{0} (sphere decoding) soft_vector={1}'.format(constellation_name, soft_vector))
+            plt.figure('Addition complexity({0}), soft_vector={1}, {2}'.format(constellation_name, soft_vector, way_name))
+            plt.plot(snr_db, add_computation, marker='o', label='{0} (sphere decoding) soft_vector={1}'.format(constellation_name, soft_vector))
+            plt.figure('Multiplication complexity({0}), soft_vector={1}, {2}'.format(constellation_name, soft_vector, way_name))
+            plt.plot(snr_db, mult_computation, marker='o', label='{0} (sphere decoding) soft_vector={1}'.format(constellation_name, soft_vector))
 
         if N >= 1000000:  # 在很多點模擬分析的情況下，錯誤率較正確，我們可以將數據存起來，之後就不用在花時間去模擬
             if way == 3:  # 若採用BFS搜尋
-                with open('sphere decoding  for {0}, soft = {1}, {2}, K={3} (Nt={4}, Nr={5}).dat'.format(constellation_name, soft, way_name, K1, Nt, Nr), 'w') as f:
+                with open('sphere decoding  for {0}, soft _vector= {1}, {2}, K={3} (Nt={4}, Nr={5}).dat'.format(constellation_name, soft_vector, way_name, K1, Nt, Nr), 'w') as f:
                     f.write('snr_db\n')
                     for m in range(len(snr_db)):
                         f.write("{0} ".format(snr_db[m]))
@@ -609,7 +623,7 @@ for k in range(2):
                     for m in range(len(snr_db)):
                         f.write("{0} ".format(mult_computation[m]))
             else:
-                with open('sphere decoding  for {0}, soft = {1}, {2} (Nt={3}, Nr={4}).dat'.format(constellation_name, soft, way_name, Nt, Nr),'w') as f:
+                with open('sphere decoding  for {0}, soft _vector= {1}, {2} (Nt={3}, Nr={4}).dat'.format(constellation_name, soft_vector, way_name, Nt, Nr),'w') as f:
                     f.write('snr_db\n')
                     for m in range(len(snr_db)):
                         f.write("{0} ".format(snr_db[m]))
@@ -642,9 +656,9 @@ for k in range(2):
                 ber_list[m] = float(ber_list[m])
 
         if way == 3:
-            plt.figure('BER({0}), soft={1}, {2}, K={3}'.format(constellation_name, soft, way_name, K1))
+            plt.figure('BER({0}), soft_vector={1}, {2}, K={3}'.format(constellation_name, soft_vector, way_name, K1))
         else:
-            plt.figure('BER({0}), soft={1}, {2}'.format(constellation_name, soft, way_name))
+            plt.figure('BER({0}), soft_vector={1}, {2}'.format(constellation_name, soft_vector, way_name))
         plt.semilogy(snr_db_list, ber_list, marker='o', label='{0} (ML decoding)'.format(constellation_name))
         #plt.semilogy(snr_db, ber, marker='o', label='{0} (ML decoding)'.format(constellation_name))
         # ML detection 的拜訪點數就不印出來了
@@ -673,36 +687,36 @@ sec = float(total_time) + (tend - tstart) - int(tend - tstart)
 print("spend {0} day, {1} hour, {2} min, {3:0.3f} sec".format(day,hour,min,sec))
 
 if way == 3:
-    plt.figure('BER({0}), soft={1}, {2}, K={3}'.format(constellation_name, soft, way_name, K1))
+    plt.figure('BER({0}), soft_vector={1}, {2}, K={3}'.format(constellation_name, soft_vector, way_name, K1))
 else:
-    plt.figure('BER({0}), soft={1}, {2}'.format(constellation_name, soft, way_name))
+    plt.figure('BER({0}), soft_vector={1}, {2}'.format(constellation_name, soft_vector, way_name))
 plt.xlabel('Eb/No , dB')
 plt.ylabel('ber')
 plt.legend()
 plt.grid(True, which='both')
 
 if way == 3:
-    plt.figure('Average visited node({0}), soft={1}, {2}, K={3}'.format(constellation_name, soft, way_name, K1))
+    plt.figure('Average visited node({0}), soft_vector={1}, {2}, K={3}'.format(constellation_name, soft_vector, way_name, K1))
 else:
-    plt.figure('Average visited node({0}), soft={1}, {2}'.format(constellation_name, soft, way_name))
+    plt.figure('Average visited node({0}), soft_vector={1}, {2}'.format(constellation_name, soft_vector, way_name))
 plt.xlabel('Eb/No , dB')
 plt.ylabel('Average visited node')
 plt.legend()
 plt.grid(True, which='both')
 
 if way == 3:
-    plt.figure('Addition complexity({0}), soft={1}, {2}, K={3}'.format(constellation_name, soft, way_name, K1))
+    plt.figure('Addition complexity({0}), soft_vector={1}, {2}, K={3}'.format(constellation_name, soft_vector, way_name, K1))
 else:
-    plt.figure('Addition complexity({0}), soft={1}, {2}'.format(constellation_name, soft, way_name))
+    plt.figure('Addition complexity({0}), soft_vector={1}, {2}'.format(constellation_name, soft_vector, way_name))
 plt.xlabel('Eb/No , dB')
 plt.ylabel('Average number of additions')
 plt.legend()
 plt.grid(True, which='both')
 
 if way == 3:
-    plt.figure('Multiplication complexity({0}), soft={1}, {2}, K={3}'.format(constellation_name, soft, way_name, K1))
+    plt.figure('Multiplication complexity({0}), soft_vector={1}, {2}, K={3}'.format(constellation_name, soft_vector, way_name, K1))
 else:
-    plt.figure('Multiplication complexity({0}), soft={1}, {2}'.format(constellation_name, soft, way_name))
+    plt.figure('Multiplication complexity({0}), soft_vector={1}, {2}'.format(constellation_name, soft_vector, way_name))
 plt.xlabel('Eb/No , dB')
 plt.ylabel('Average number of multiplications')
 plt.legend()
