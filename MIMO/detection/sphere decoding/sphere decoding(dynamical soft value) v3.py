@@ -30,7 +30,7 @@ y_new = np.matrix([0j]*2*Nr).transpose()       # 將接收端的向量，對其�
 
 
 # 利用constellation_num決定要用哪種星座點
-constellation_num = 1
+constellation_num = 2
 if constellation_num == 1:
     # 定義星座點，QPSK symbol值域為{1+j , 1-j , -1+j , -1-j }
     # 則實部、虛部值域皆為{ -1, 1 }
@@ -54,7 +54,7 @@ elif constellation_num == 3:
 
 
 soft = 8 # 選擇幾個soft 值 (沒屁用了)
-soft_vector = [1,1,2,2]  # 會決定每一層要搜尋幾個節點
+soft_vector = [1,1,1,1]  # 會決定每一層要搜尋幾個節點
 
 
 # 在terminal顯示目前是跑哪一種調變的模擬，而且跑幾個點
@@ -62,7 +62,7 @@ print('{0}模擬 , N={1} , soft_vector = {2}'.format(constellation_name, N, soft
 # 定義way為路徑搜尋的方式
 # 1代表DFS、2代表Best First Search、3代表BFS(Breadth-First-Search)其中K1為最多搜尋的節點數
 way = 3
-K1 = 4
+K1 = 8
 if way == 1:
     way_name = 'DFS'
     print(way_name)

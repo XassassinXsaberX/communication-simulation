@@ -121,7 +121,7 @@ for k in range(2):
             # 接下來決定接收端收到的向量y_new (共有2Nr 的元素)
             y_new = H_new * symbol_new
             for m in range(2*Nr):
-                y_new[m,0] += np.sqrt(No/2)*np.random.randn() + 1j*np.sqrt(No/2)*np.random.randn()
+                y_new[m,0] += np.sqrt(No/2)*np.random.randn()# + 1j*np.sqrt(No/2)*np.random.randn()
 
 
             # 接下要先定義如何sphere decoding (DFS版本)

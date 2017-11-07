@@ -30,7 +30,7 @@ y_new = np.matrix([0j]*2*Nr).transpose()       # 將接收端的向量，對其�
 
 
 # 利用constellation_num決定要用哪種星座點
-constellation_num = 1
+constellation_num = 2
 if constellation_num == 1:
     # 定義星座點，QPSK symbol值域為{1+j , 1-j , -1+j , -1-j }
     # 則實部、虛部值域皆為{ -1, 1 }
@@ -53,14 +53,14 @@ elif constellation_num == 3:
             constellation += [constellation_new[i] + 1j * constellation_new[j]]
 
 
-soft = 1 # 選擇幾個soft 值
+soft = 3 # 選擇幾個soft 值
 
 # 在terminal顯示目前是跑哪一種調變的模擬，而且跑幾個點
 print('{0}模擬 , N={1} , soft = {2}'.format(constellation_name, N, soft))
 # 定義way為路徑搜尋的方式
 # 1代表DFS、2代表Best First Search、3代表BFS(Breadth-First-Search)其中K1為最多搜尋的節點數
-way = 3
-K1 = 4
+way = 1
+K1 = 8
 if way == 1:
     way_name = 'DFS'
     print(way_name)
@@ -125,7 +125,7 @@ for k in range(2):
             # 接下來決定接收端收到的向量y_new (共有2Nr 的元素)
             y_new = H_new * symbol_new
             for m in range(2*Nr):
-                y_new[m,0] += np.sqrt(No/2)*np.random.randn() + 1j*np.sqrt(No/2)*np.random.randn()
+                y_new[m,0] += np.sqrt(No/2)*np.random.randn()# + 1j*np.sqrt(No/2)*np.random.randn()
 
 
             # 接下要先定義如何sphere decoding (DFS版本)
