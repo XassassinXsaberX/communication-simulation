@@ -478,7 +478,7 @@ for k in range(2):
             plt.figure('BER, {0}, K={1}'.format(way_name, K1))
         else:
             plt.figure('BER, {0}'.format(way_name))
-        plt.semilogy(snr_db_list, ber_list, marker='o', label='{0} (ML decoding)'.format(constellation_name))
+        plt.semilogy(snr_db_list, ber_list, marker='o', label='{0} (ML detection)'.format(constellation_name))
         #plt.semilogy(snr_db, ber, marker='o', label='{0} (ML decoding)'.format(constellation_name))
         #plt.figure('Average visited node')
         #plt.plot(snr_db, visited_node, marker='o', label='{0} (ML decoding)'.format(constellation_name))

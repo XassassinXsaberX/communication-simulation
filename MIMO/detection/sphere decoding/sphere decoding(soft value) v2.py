@@ -30,7 +30,7 @@ y_new = np.matrix([0j]*2*Nr).transpose()       # 將接收端的向量，對其�
 
 
 # 利用constellation_num決定要用哪種星座點
-constellation_num = 2
+constellation_num = 3
 if constellation_num == 1:
     # 定義星座點，QPSK symbol值域為{1+j , 1-j , -1+j , -1-j }
     # 則實部、虛部值域皆為{ -1, 1 }
@@ -53,13 +53,13 @@ elif constellation_num == 3:
             constellation += [constellation_new[i] + 1j * constellation_new[j]]
 
 
-soft = 3 # 選擇幾個soft 值
+soft = 6 # 選擇幾個soft 值
 
 # 在terminal顯示目前是跑哪一種調變的模擬，而且跑幾個點
 print('{0}模擬 , N={1} , soft = {2}'.format(constellation_name, N, soft))
 # 定義way為路徑搜尋的方式
 # 1代表DFS、2代表Best First Search、3代表BFS(Breadth-First-Search)其中K1為最多搜尋的節點數
-way = 1
+way = 3
 K1 = 8
 if way == 1:
     way_name = 'DFS'
@@ -517,7 +517,7 @@ for k in range(2):
                 for m in range(len(s)):
                     min_metric += abs(z[m,0]-s[m,0])**2
                 min_metric = [min_metric]  # min_metric即為利用zero forcing detection決定出來的球半徑
-                min_metric = [10 ** 9]     # 若採用不決定球半徑的方法時
+                #min_metric = [10 ** 9]     # 若採用不決定球半徑的方法時
 
                 # 以下提供3種最基本的sphere decoding detection
                 if way == 1:
@@ -645,7 +645,7 @@ for k in range(2):
             plt.figure('BER({0}), soft={1}, {2}, K={3}'.format(constellation_name, soft, way_name, K1))
         else:
             plt.figure('BER({0}), soft={1}, {2}'.format(constellation_name, soft, way_name))
-        plt.semilogy(snr_db_list, ber_list, marker='o', label='{0} (ML decoding)'.format(constellation_name))
+        plt.semilogy(snr_db_list, ber_list, marker='o', label='{0} (ML detection)'.format(constellation_name))
         #plt.semilogy(snr_db, ber, marker='o', label='{0} (ML decoding)'.format(constellation_name))
         # ML detection 的拜訪點數就不印出來了
         #plt.figure('Average visited node')
