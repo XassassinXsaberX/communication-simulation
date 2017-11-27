@@ -3,6 +3,10 @@ import matplotlib.pyplot as plt
 import heapq
 import time
 
+# 本模擬的目的是透過決定search tree中上層的soft value，來改變下層的soft value
+# 例如在64QAM 4X4 MIMO系統中，若search tree的level  1對應到的soft value s3 若決定為5
+# 則可以透過動態演算法決定下層(level  2)的soft value
+
 # 開始記時
 tstart = time.time()
 
@@ -14,7 +18,7 @@ add_computation = [0] * len(snr_db)   # 用來記錄平均加法次數
 mult_computation = [0] * len(snr_db)  # 用來記錄平均乘法次數
 Nt = 2  # 傳送端天線數
 Nr = 2  # 接收端天線數
-N = 1000000  # 執行N次來找錯誤率
+N = 20000000  # 執行N次來找錯誤率
 
 
 # 這裡採用 Nt x Nr 的MIMO系統，所以原本通道矩陣為 Nr x Nt
@@ -54,15 +58,15 @@ elif constellation_num == 3:
 
 
 soft = 2 # 選擇幾個soft 值 (沒屁用了)
-soft_vector = [4,4,4,4]  # 會決定每一層要搜尋幾個節點
+soft_vector = [1,2,4,4]  # 會決定每一層要搜尋幾個節點
 
 
 # 在terminal顯示目前是跑哪一種調變的模擬，而且跑幾個點
-print('{0}模擬 , N={1} , soft_vector = {2}'.format(constellation_name, N, soft_vector))
+print('{0}模擬(dynamic algoritm) , N={1} , soft_vector = {2}'.format(constellation_name, N, soft_vector))
 # 定義way為路徑搜尋的方式
 # 1代表DFS、2代表Best First Search、3代表BFS(Breadth-First-Search)其中K1為最多搜尋的節點數
-way = 1
-K1 = 8
+way = 2
+K1 = 12
 if way == 1:
     way_name = 'DFS'
     print(way_name)
@@ -131,8 +135,10 @@ for k in range(2):
 
 
             # 接下要先定義如何sphere decoding (DFS版本)
-            def sphere_decoding_dfs(R, zf, K, soft_vector, detect, optimal_detection, N, current, accumulated_metric, min_metric, complexity, constellation):
-                # R為H進行QR分解後的R矩陣、zf向量為zero forcing detection後尚未demapping的結果、K為選擇branch時要選擇離soft value最近的K個節點
+            def sphere_decoding_dfs(R, zf, z, K, soft_vector, detect, optimal_detection, N, current, accumulated_metric, min_metric, complexity, constellation):
+                # R為H進行QR分解後的R矩陣、zf向量則是採用動態演算法決定search tree每一層的soft value時，會將結果存放於此向量中
+                # z向量則是Q矩陣轉置後乘上接收向量y的結果
+                # K為選擇branch時要選擇離soft value最近的K個節點 (這裡用不到)
                 # soft_vector 有N個元素，用來決定不同tree level時要搜尋幾個節點
                 # detect向量代表傳送端可能送出的向量(會藉由遞迴來不斷改變)
                 # optimal_detection向量為最終detection後得到的結果
@@ -148,26 +154,55 @@ for k in range(2):
                         for i in range(N):
                             optimal_detection[i,0] = detect[i,0]
                 else:
-                    # 遞迴到這一層時對應到的soft value為zf[current, 0]
-                    # 我們接下來要看哪些星座點離zf[current, 0]最近
-                    select = [0]*len(constellation)   # 若select[i] == 0 代表不選擇星座點i，若select[i] == 1 代表會選擇星座點i
-                    lt = [[0]*2 for i in range(len(constellation))]
-                    for i in range(len(constellation)):
-                        lt[i][0] = i                                     # 代表這是第i個星座點，待會排序後可以知道到底哪個星座點與soft value最近
-                        lt[i][1] = abs(zf[current,0] - constellation[i]) # 代表此星座點與這個soft value間的距離
-                    lt.sort(key = lambda cust:cust[1])    # 以星座點與 soft value間的距離為依據來排序，間距越小者排越前面
-                    # 若lt[0][0] = 3 代表星座點3與soft value最近
-                    # 若lt[1][0] = 1 代表星座點1與soft value第二近
-                    # 若lt[2][0] = 0 代表星座點0與soft value第三近
+                    select = [0] * len(constellation)  # 若select[i] == 0 代表不選擇星座點i，若select[i] == 1 代表會選擇星座點i
 
-                    # 注意到我們現在只要選擇K個離soft value最近的星座點
-                    # 所以現在開始來選擇
-                    count = 0
-                    for i in range(len(constellation)):
-                        select[lt[i][0]] = 1
-                        count += 1
-                        if count >= K:
-                            break
+                    # 第一層的所有點就都搜尋吧
+                    if current == N-1:
+                        for i in range(len(constellation)):
+                            select[i] = 1
+
+                    # 若不是第一層的話，就搜尋部份點
+                    else:
+                        # 要先動態決定zf[current, 0]的值
+                        zf[current, 0] = z[current, 0]
+                        for i in range(N-1, current, -1):
+                            zf[current, 0] -= R[current, i] * detect[i, 0]
+
+                            # 做一次乘法運算時，我們會採用以下的方法，所以記錄成做一次加法
+                            # 因為zf[ i , 0 ]的值域在64QAM時為 -7, -5, -3, -1, 1, 3, 5, 7
+                            # 乘上1，相當於0次加法
+                            # 乘上3，相當往左shift一個bit(x2)再做一次加法 = 一次加法
+                            # 乘上5，相當往左shift兩個bit(x4)再做一次加法 = 一次加法
+                            # 乘上7，相當往左shift三個bit(x8)再做一次減法 = 一次加法
+                            if zf[i, 0] != 1 or zf[i, 0] != -1:
+                                complexity[1] += 1  # 代表加法次數加1
+                            # 因為最後還會再做ㄧ次減法，所以加法次數加1
+                            complexity[1] += 1
+                        zf[current, 0] /= R[current, current]
+                        # 做一次乘法運算
+                        complexity[2] += 1
+
+
+                        # 遞迴到這一層時對應到的soft value為zf[current, 0]
+                        # 我們接下來要看哪些星座點離zf[current, 0]最近
+                        select = [0]*len(constellation)   # 若select[i] == 0 代表不選擇星座點i，若select[i] == 1 代表會選擇星座點i
+                        lt = [[0]*2 for i in range(len(constellation))]
+                        for i in range(len(constellation)):
+                            lt[i][0] = i                                     # 代表這是第i個星座點，待會排序後可以知道到底哪個星座點與soft value最近
+                            lt[i][1] = abs(zf[current,0] - constellation[i]) # 代表此星座點與這個soft value間的距離
+                        lt.sort(key = lambda cust:cust[1])    # 以星座點與 soft value間的距離為依據來排序，間距越小者排越前面
+                        # 若lt[0][0] = 3 代表星座點3與soft value最近
+                        # 若lt[1][0] = 1 代表星座點1與soft value第二近
+                        # 若lt[2][0] = 0 代表星座點0與soft value第三近
+
+                        # 注意到我們現在只要選擇K個離soft value最近的星座點
+                        # 所以現在開始來選擇
+                        count = 0
+                        for i in range(len(constellation)):
+                            select[lt[i][0]] = 1
+                            count += 1
+                            if count >= K:
+                                break
 
                     for i in range(len(constellation)):
                         if select[i] == 0: # 若此星座點離soft value太遠而無法選取時，就跳過吧
@@ -199,7 +234,7 @@ for k in range(2):
                             complexity[1] += 1       # 將metric值累加，算一次加法運算
 
                         if metric < min_metric[0]:  # 只有在"目前累積metric" 小於 "最小metric"的情況下才能繼續遞迴往下搜尋
-                            sphere_decoding_dfs(R, zf, K, soft_vector, detect, optimal_detection, N, current - 1, metric, min_metric, complexity, constellation)
+                            sphere_decoding_dfs(R, zf, z, K, soft_vector, detect, optimal_detection, N, current - 1, metric, min_metric, complexity, constellation)
 
 
             # 我們也定義一個ML detection
@@ -234,9 +269,10 @@ for k in range(2):
 
                         ML_detection(H, detect, optimal_detection, y, current + 1, min_distance, complexity, constellation)
 
-            def best_first_search(R, zf, K, soft_vector, optimal_detection, N, complexity, constellation): # best first serach 其實類似BFS search，只不過變為priority queue
+            def best_first_search(R, zf, z, K, soft_vector, optimal_detection, N, complexity, constellation): # best first serach 其實類似BFS search，只不過變為priority queue
                 # R為H進行QR分解後的R矩陣
-                # zf向量為zero forcing detection後尚未demapping的結果
+                # zf向量則是採用動態演算法決定search tree每一層的soft value時，會將結果存放於此向量中
+                # z向量則是Q矩陣轉置後乘上接收向量y的結果
                 # K為選擇branch時要選擇離soft value最近的K個節點、soft_vector 有N個元素，用來決定不同tree level時要搜尋幾個節點
                 # optimal_detection向量為最終detection後得到的結果
                 # N為傳送向量長度
@@ -245,8 +281,10 @@ for k in range(2):
 
                 priority_queue = []
 
+                # search tree的第一層就搜尋所有可能點
                 K = soft_vector[N-1]    # 在tree最上層要搜尋soft_vector[N-1]個節點
-
+                select = [1] * len(constellation)  # 若select[i] == 0 代表不選擇星座點i，若select[i] == 1 代表會選擇星座點i
+                '''
                 # tree的第一層時對應到的soft value為zf[N-1, 0]
                 # 我們接下來要看哪些星座點離zf[N-1, 0]最近
                 select = [0] * len(constellation)  # 若select[i] == 0 代表不選擇星座點i，若select[i] == 1 代表會選擇星座點i
@@ -267,6 +305,7 @@ for k in range(2):
                     count += 1
                     if count >= K:
                         break
+                '''
 
                 # 再來將tree中第一層離soft value zf[N-1, 0]較近的星座點丟到priority queue中
                 for i in range(len(constellation)):
@@ -308,6 +347,26 @@ for k in range(2):
 
                     # 搜尋此節點的下層節點
                     # tree的這一層對應到的soft value為zf[N-1-first_element[2], 0]
+                    # 利用動態演算法決定zf[N-1-first_element[2], 0]的值
+                    zf[N-1-first_element[2], 0] = z[N-1-first_element[2], 0]
+                    for i in range(N - 1, N-1-first_element[2], -1):
+                        zf[N-1-first_element[2], 0] -= R[N-1-first_element[2], i] * first_element[1][i, 0]
+
+                        # 做一次乘法運算時，我們會採用以下的方法，所以記錄成做一次加法
+                        # 因為zf[ i , 0 ]的值域在64QAM時為 -7, -5, -3, -1, 1, 3, 5, 7
+                        # 乘上1，相當於0次加法
+                        # 乘上3，相當往左shift一個bit(x2)再做一次加法 = 一次加法
+                        # 乘上5，相當往左shift兩個bit(x4)再做一次加法 = 一次加法
+                        # 乘上7，相當往左shift三個bit(x8)再做一次減法 = 一次加法
+                        if first_element[1][i, 0] != 1 or first_element[1][i, 0] != -1:
+                            complexity[1] += 1  # 代表加法次數加1
+                        # 因為最後還會再做ㄧ次減法，所以加法次數加1
+                        complexity[1] += 1
+                    zf[N-1-first_element[2], 0] /= R[N-1-first_element[2], N-1-first_element[2]]
+                    # 做一次乘法運算
+                    complexity[2] += 1
+
+
                     # 我們接下來要看哪些星座點離zf[N-1-first_element[2], 0]最近
                     select = [0] * len(constellation)  # 若select[i] == 0 代表不選擇星座點i，若select[i] == 1 代表會選擇星座點i
                     lt = [[0] * 2 for i in range(len(constellation))]
@@ -362,8 +421,11 @@ for k in range(2):
                     optimal_detection[i,0] = first_element[1][i,0]
 
 
-            def sphere_decoding_bfs(R, zf, K, soft_vector, optimal_detection, K1, N, complexity, constellation):
-                # R為H進行QR分解後的R矩陣、zf向量為zero forcing detection後尚未demapping的結果、K為選擇branch時要選擇離soft value最近的K個節點
+            def sphere_decoding_bfs(R, zf, z, K, soft_vector, optimal_detection, K1, N, complexity, constellation):
+                # R為H進行QR分解後的R矩陣
+                # zf向量則是採用動態演算法決定search tree每一層的soft value時，會將結果存放於此向量中
+                # z向量則是Q矩陣轉置後乘上接收向量y的結果
+                # K為選擇branch時要選擇離soft value最近的K個節點
                 # soft_vector 有N個元素，用來決定不同tree level時要搜尋幾個節點
                 # optimal_detection向量為最終detection後得到的結果、K1為BFS搜尋中最多准許有幾個node出現
                 # N為傳送向量長度
@@ -375,12 +437,15 @@ for k in range(2):
                 queue = [[],[]]
                 # 有兩個queue，a是要負責pop元素，b則push元素
                 # 等到其中a  queue的元素pop完後
-                # 換b queue pop元素，a  queue push元素
+                # 換b queue pop元素，a  queue push元素 (簡單來說就是兩的queue輪流pop push元素)
 
                 current = 0 # 利用current來決定目前是哪個queue要pop元素
 
+                # search tree的第一層就搜尋所有可能點
                 K = soft_vector[N - 1]  # 在tree最上層要搜尋soft_vector[N-1]個節點
+                select = [1] * len(constellation)  # 若select[i] == 0 代表不選擇星座點i，若select[i] == 1 代表會選擇星座點i
 
+                '''
                 # tree的第一層時對應到的soft value為zf[N-1, 0]
                 # 我們接下來要看哪些星座點離zf[N-1, 0]最近
                 select = [0] * len(constellation)  # 若select[i] == 0 代表不選擇星座點i，若select[i] == 1 代表會選擇星座點i
@@ -401,6 +466,7 @@ for k in range(2):
                     count += 1
                     if count >= K:
                         break
+                '''
 
                 # 一開始將tree中第一層離soft value zf[N-1, 0]較近的節點丟到queue[current]中
                 for i in range(len(constellation)):
@@ -431,7 +497,7 @@ for k in range(2):
 
                     count = 0  # count用來紀錄queue[current] 目前pop幾個元素
                     while True: # 將queue[current]的元素pop出來，並根據此pop出來的元素從tree的下層選出其他節點加到queue[(current+1)%2]中
-                                # 注意到queue[current]最多只會pop K個node
+                                # 注意到queue[current]最多只會pop K1個node
 
                         if len(queue[current]) == 0:  # 若該queue的元素都pop出來了，就直接break
                             break
@@ -457,6 +523,25 @@ for k in range(2):
                             break
 
                         # 接下來搜尋此節點的下層節點
+                        # tree的這一層對應到的soft value為zf[N-1-first_element[2], 0]
+                        # 利用動態演算法決定zf[N-1-first_element[2], 0]的值
+                        zf[N-1-first_element[2], 0] = z[N - 1 - first_element[2], 0]
+                        for i in range(N - 1, N - 1 - first_element[2], -1):
+                            zf[N-1-first_element[2], 0] -= R[N-1-first_element[2], i] * first_element[1][i, 0]
+                            # 做一次乘法運算時，我們會採用以下的方法，所以記錄成做一次加法
+                            # 因為zf[ i , 0 ]的值域在64QAM時為 -7, -5, -3, -1, 1, 3, 5, 7
+                            # 乘上1，相當於0次加法
+                            # 乘上3，相當往左shift一個bit(x2)再做一次加法 = 一次加法
+                            # 乘上5，相當往左shift兩個bit(x4)再做一次加法 = 一次加法
+                            # 乘上7，相當往左shift三個bit(x8)再做一次減法 = 一次加法
+                            if first_element[1][i, 0] != 1 or first_element[1][i, 0] != -1:
+                                complexity[1] += 1  # 代表加法次數加1
+                            # 因為最後還會再做ㄧ次減法，所以加法次數加1
+                            complexity[1] += 1
+                        zf[N-1-first_element[2], 0] /= R[N - 1 - first_element[2], N - 1 - first_element[2]]
+                        # 做一次乘法運算
+                        complexity[2] += 1
+
                         # 搜尋前我們要看，哪一個下層節點離下層soft value值較近，我們只選取離soft value值較近的K個節點
                         # 我們接下來要看哪些星座點離zf[N - 1 - first_element[2], 0]最近
                         select = [0] * len(constellation)  # 若select[i] == 0 代表不選擇星座點i，若select[i] == 1 代表會選擇星座點i
@@ -535,11 +620,11 @@ for k in range(2):
 
                 # 以下提供3種最基本的sphere decoding detection
                 if way == 1:
-                    sphere_decoding_dfs(R, s, soft, soft_vector, detect, optimal_detection, 2*Nt, 2*Nt-1, 0, min_metric, complexity, constellation_new) # 花一點時間
+                    sphere_decoding_dfs(R, s, z, soft, soft_vector, detect, optimal_detection, 2*Nt, 2*Nt-1, 0, min_metric, complexity, constellation_new) # 花一點時間
                 elif way == 2:
-                    best_first_search(R, s, soft, soft_vector, optimal_detection, 2*Nt, complexity, constellation_new) # 花最少時間
+                    best_first_search(R, s, z, soft, soft_vector, optimal_detection, 2*Nt, complexity, constellation_new) # 花最少時間
                 elif way == 3:
-                    sphere_decoding_bfs(R, s, soft, soft_vector, optimal_detection, K1, 2*Nt, complexity, constellation_new)  # 花超多時間
+                    sphere_decoding_bfs(R, s, z, soft, soft_vector, optimal_detection, K1, 2*Nt, complexity, constellation_new)  # 花超多時間
 
 
             elif k == 1:
@@ -586,59 +671,79 @@ for k in range(2):
 
     if k == 0:
         if way == 3:   # 若採用BFS搜尋
-            plt.figure('BER({0}), soft_vector={1}, {2}, K={3}'.format(constellation_name, soft_vector, way_name, K1))
+            plt.figure('BER({0})(dynamic algorithm), soft_vector={1}, {2}, K={3}'.format(constellation_name, soft_vector, way_name, K1))
             plt.semilogy(snr_db, ber, marker='o', label='{0} (sphere decoding) soft_vector = {1}, K={2}'.format(constellation_name, soft_vector, K1))
-            plt.figure('Average visited node({0}), soft_vector={1}, {2}, K={3}'.format(constellation_name, soft_vector, way_name, K1))
+            plt.figure('Average visited node({0})(dynamic algorithm), soft_vector={1}, {2}, K={3}'.format(constellation_name, soft_vector, way_name, K1))
             plt.plot(snr_db, visited_node, marker='o', label='{0} (sphere decoding) soft_vector={1}, K={2}'.format(constellation_name, soft_vector, K1))
-            plt.figure('Addition complexity({0}), soft_vector={1}, {2}, K={3}'.format(constellation_name, soft_vector, way_name, K1))
+            plt.figure('Addition complexity({0})(dynamic algorithm), soft_vector={1}, {2}, K={3}'.format(constellation_name, soft_vector, way_name, K1))
             plt.plot(snr_db, add_computation, marker='o', label='{0} (sphere decoding) soft_vector={1}, K={2}'.format(constellation_name, soft_vector, K1))
-            plt.figure('Multiplication complexity({0}), soft_vector={1}, {2}, K={3}'.format(constellation_name, soft_vector, way_name, K1))
+            plt.figure('Multiplication complexity({0})(dynamic algorithm), soft_vector={1}, {2}, K={3}'.format(constellation_name, soft_vector, way_name, K1))
             plt.plot(snr_db, mult_computation, marker='o', label='{0} (sphere decoding) soft_vector={1}, K={2}'.format(constellation_name, soft_vector, K1))
         else:
-            plt.figure('BER({0}), soft_vector={1}, {2}'.format(constellation_name, soft_vector, way_name))
+            plt.figure('BER({0})(dynamic algorithm), soft_vector={1}, {2}'.format(constellation_name, soft_vector, way_name))
             plt.semilogy(snr_db, ber, marker='o', label='{0} (sphere decoding) soft_vector = {1}'.format(constellation_name, soft_vector))
-            plt.figure('Average visited node({0}), soft_vector={1}, {2}'.format(constellation_name, soft_vector, way_name))
+            plt.figure('Average visited node({0})(dynamic algorithm), soft_vector={1}, {2}'.format(constellation_name, soft_vector, way_name))
             plt.plot(snr_db, visited_node, marker='o', label='{0} (sphere decoding) soft_vector={1}'.format(constellation_name, soft_vector))
-            plt.figure('Addition complexity({0}), soft_vector={1}, {2}'.format(constellation_name, soft_vector, way_name))
+            plt.figure('Addition complexity({0})(dynamic algorithm), soft_vector={1}, {2}'.format(constellation_name, soft_vector, way_name))
             plt.plot(snr_db, add_computation, marker='o', label='{0} (sphere decoding) soft_vector={1}'.format(constellation_name, soft_vector))
-            plt.figure('Multiplication complexity({0}), soft_vector={1}, {2}'.format(constellation_name, soft_vector, way_name))
+            plt.figure('Multiplication complexity({0})(dynamic algorithm), soft_vector={1}, {2}'.format(constellation_name, soft_vector, way_name))
             plt.plot(snr_db, mult_computation, marker='o', label='{0} (sphere decoding) soft_vector={1}'.format(constellation_name, soft_vector))
 
         if N >= 1000000:  # 在很多點模擬分析的情況下，錯誤率較正確，我們可以將數據存起來，之後就不用在花時間去模擬
             if way == 3:  # 若採用BFS搜尋
-                with open('sphere decoding  for {0}, soft _vector= {1}, {2}, K={3} (Nt={4}, Nr={5}).dat'.format(constellation_name, soft_vector, way_name, K1, Nt, Nr), 'w') as f:
+                with open('sphere decoding  for {0}(dynamic algorithm), soft _vector= {1}, {2}, K={3} (Nt={4}, Nr={5}).dat'.format(constellation_name, soft_vector, way_name, K1, Nt, Nr), 'w') as f:
                     f.write('snr_db\n')
                     for m in range(len(snr_db)):
                         f.write("{0} ".format(snr_db[m]))
+                        if m < len(snr_db)-1:
+                            f.write(",")
                     f.write('\nber\n')
                     for m in range(len(snr_db)):
                         f.write("{0} ".format(ber[m]))
+                        if m < len(snr_db)-1:
+                            f.write(",")
                     f.write('\nAverage visited node\n')
                     for m in range(len(snr_db)):
                         f.write("{0} ".format(visited_node[m]))
+                        if m < len(snr_db)-1:
+                            f.write(",")
                     f.write("\nAddition complexity\n")
                     for m in range(len(snr_db)):
                         f.write("{0} ".format(add_computation[m]))
+                        if m < len(snr_db)-1:
+                            f.write(",")
                     f.write("\nMultiplication complexity\n")
                     for m in range(len(snr_db)):
                         f.write("{0} ".format(mult_computation[m]))
+                        if m < len(snr_db)-1:
+                            f.write(",")
             else:
-                with open('sphere decoding  for {0}, soft _vector= {1}, {2} (Nt={3}, Nr={4}).dat'.format(constellation_name, soft_vector, way_name, Nt, Nr),'w') as f:
+                with open('sphere decoding  for {0}(dynamic algorithm), soft _vector= {1}, {2} (Nt={3}, Nr={4}).dat'.format(constellation_name, soft_vector, way_name, Nt, Nr),'w') as f:
                     f.write('snr_db\n')
                     for m in range(len(snr_db)):
                         f.write("{0} ".format(snr_db[m]))
+                        if m < len(snr_db)-1:
+                            f.write(",")
                     f.write('\nber\n')
                     for m in range(len(snr_db)):
                         f.write("{0} ".format(ber[m]))
+                        if m < len(snr_db)-1:
+                            f.write(",")
                     f.write('\nAverage visited node\n')
                     for m in range(len(snr_db)):
                         f.write("{0} ".format(visited_node[m]))
+                        if m < len(snr_db)-1:
+                            f.write(",")
                     f.write("\nAddition complexity\n")
                     for m in range(len(snr_db)):
                         f.write("{0} ".format(add_computation[m]))
+                        if m < len(snr_db)-1:
+                            f.write(",")
                     f.write("\nMultiplication complexity\n")
                     for m in range(len(snr_db)):
                         f.write("{0} ".format(mult_computation[m]))
+                        if m < len(snr_db)-1:
+                            f.write(",")
 
     elif k == 1:
         # 我們先前就已完成ML detection的模擬，直接拿來用吧
@@ -656,9 +761,9 @@ for k in range(2):
                 ber_list[m] = float(ber_list[m])
 
         if way == 3:
-            plt.figure('BER({0}), soft_vector={1}, {2}, K={3}'.format(constellation_name, soft_vector, way_name, K1))
+            plt.figure('BER({0})(dynamic algorithm), soft_vector={1}, {2}, K={3}'.format(constellation_name, soft_vector, way_name, K1))
         else:
-            plt.figure('BER({0}), soft_vector={1}, {2}'.format(constellation_name, soft_vector, way_name))
+            plt.figure('BER({0})(dynamic algorithm), soft_vector={1}, {2}'.format(constellation_name, soft_vector, way_name))
         plt.semilogy(snr_db_list, ber_list, marker='o', label='{0} (ML detection)'.format(constellation_name))
         #plt.semilogy(snr_db, ber, marker='o', label='{0} (ML decoding)'.format(constellation_name))
         # ML detection 的拜訪點數就不印出來了
@@ -687,36 +792,36 @@ sec = float(total_time) + (tend - tstart) - int(tend - tstart)
 print("spend {0} day, {1} hour, {2} min, {3:0.3f} sec".format(day,hour,min,sec))
 
 if way == 3:
-    plt.figure('BER({0}), soft_vector={1}, {2}, K={3}'.format(constellation_name, soft_vector, way_name, K1))
+    plt.figure('BER({0})(dynamic algorithm), soft_vector={1}, {2}, K={3}'.format(constellation_name, soft_vector, way_name, K1))
 else:
-    plt.figure('BER({0}), soft_vector={1}, {2}'.format(constellation_name, soft_vector, way_name))
+    plt.figure('BER({0})(dynamic algorithm), soft_vector={1}, {2}'.format(constellation_name, soft_vector, way_name))
 plt.xlabel('Eb/No , dB')
 plt.ylabel('ber')
 plt.legend()
 plt.grid(True, which='both')
 
 if way == 3:
-    plt.figure('Average visited node({0}), soft_vector={1}, {2}, K={3}'.format(constellation_name, soft_vector, way_name, K1))
+    plt.figure('Average visited node({0})(dynamic algorithm), soft_vector={1}, {2}, K={3}'.format(constellation_name, soft_vector, way_name, K1))
 else:
-    plt.figure('Average visited node({0}), soft_vector={1}, {2}'.format(constellation_name, soft_vector, way_name))
+    plt.figure('Average visited node({0})(dynamic algorithm), soft_vector={1}, {2}'.format(constellation_name, soft_vector, way_name))
 plt.xlabel('Eb/No , dB')
 plt.ylabel('Average visited node')
 plt.legend()
 plt.grid(True, which='both')
 
 if way == 3:
-    plt.figure('Addition complexity({0}), soft_vector={1}, {2}, K={3}'.format(constellation_name, soft_vector, way_name, K1))
+    plt.figure('Addition complexity({0})(dynamic algorithm), soft_vector={1}, {2}, K={3}'.format(constellation_name, soft_vector, way_name, K1))
 else:
-    plt.figure('Addition complexity({0}), soft_vector={1}, {2}'.format(constellation_name, soft_vector, way_name))
+    plt.figure('Addition complexity({0})(dynamic algorithm), soft_vector={1}, {2}'.format(constellation_name, soft_vector, way_name))
 plt.xlabel('Eb/No , dB')
 plt.ylabel('Average number of additions')
 plt.legend()
 plt.grid(True, which='both')
 
 if way == 3:
-    plt.figure('Multiplication complexity({0}), soft_vector={1}, {2}, K={3}'.format(constellation_name, soft_vector, way_name, K1))
+    plt.figure('Multiplication complexity({0})(dynamic algorithm), soft_vector={1}, {2}, K={3}'.format(constellation_name, soft_vector, way_name, K1))
 else:
-    plt.figure('Multiplication complexity({0}), soft_vector={1}, {2}'.format(constellation_name, soft_vector, way_name))
+    plt.figure('Multiplication complexity({0})(dynamic algorithm), soft_vector={1}, {2}'.format(constellation_name, soft_vector, way_name))
 plt.xlabel('Eb/No , dB')
 plt.ylabel('Average number of multiplications')
 plt.legend()
