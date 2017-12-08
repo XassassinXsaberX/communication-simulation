@@ -12,8 +12,8 @@ ber = [0] * len(snr_db)
 visited_node = [0] * len(snr_db)
 add_computation = [0] * len(snr_db)   # 用來記錄平均加法次數
 mult_computation = [0] * len(snr_db)  # 用來記錄平均乘法次數
-Nt = 2  # 傳送端天線數
-Nr = 2  # 接收端天線數
+Nt = 4  # 傳送端天線數
+Nr = 4  # 接收端天線數
 N = 1000000  # 執行N次來找錯誤率
 
 
@@ -53,13 +53,19 @@ elif constellation_num == 3:
             constellation += [constellation_new[i] + 1j * constellation_new[j]]
 
 
-soft = 6 # 選擇幾個soft 值
+soft = 3             # 選擇幾個soft 值
+normalize = 1        # 決定接收端是否要對雜訊normalize (若為0代表不normalize，若為1代表要normalize)
 
 # 在terminal顯示目前是跑哪一種調變的模擬，而且跑幾個點
 print('{0}模擬 , N={1} , soft = {2}'.format(constellation_name, N, soft))
+print("Nt={0}, Nr={1}".format(Nt,Nr))
+if normalize == 0:
+    print("non-normalize")
+else:
+    print("normalize")
 # 定義way為路徑搜尋的方式
 # 1代表DFS、2代表Best First Search、3代表BFS(Breadth-First-Search)其中K1為最多搜尋的節點數
-way = 3
+way = 2
 K1 = 8
 if way == 1:
     way_name = 'DFS'
@@ -75,12 +81,37 @@ elif way == 3:
 
 # 根據不同的調變設定snr 間距
 for i in range(len(snr)):
-    if constellation_name == 'QPSK':
+    if Nt == 2:
+        if constellation_name == 'QPSK':
+            snr_db[i] = 2 * i
+        elif constellation_name == '16QAM':
+            snr_db[i] = 2.5 * i
+        elif constellation_name == '64QAM':
+            snr_db[i] = 3 * i
+        else:
+            snr_db[i] = 2 * i
+        if normalize == 1:
+            snr_db[i] += 10 * np.log10(Nr)
+    elif Nt == 3:
+        if constellation_name == 'QPSK':
+            snr_db[i] = 1.7 * i
+        elif constellation_name == '16QAM':
+            snr_db[i] = 2.2 * i
+        elif constellation_name == '64QAM':
+            snr_db[i] = 2.6 * i
+        else:
+            snr_db[i] = 2 * i
+    elif Nt == 4:
+        if constellation_name == 'QPSK':
+            snr_db[i] = 1.5 * i
+        elif constellation_name == '16QAM':
+            snr_db[i] = 1.9 * i
+        elif constellation_name == '64QAM':
+            snr_db[i] = 2.3 * i
+        else:
+            snr_db[i] = 2 * i
+    else:
         snr_db[i] = 2 * i
-    elif constellation_name == '16QAM':
-        snr_db[i] = 2.5 * i
-    elif constellation_name == '64QAM':
-        snr_db[i] = 3 * i
     snr[i] = np.power(10, snr_db[i] / 10)
 
 
@@ -100,7 +131,10 @@ for k in range(2):
         total = 0
         complexity = [0] * 3 # 分別記錄經過幾個node、做幾次加法運算、做幾次乘法運算
 
-        No = Eb / snr[i]                      # 決定雜訊No
+        if normalize == 0:
+            No = Eb / snr[i]                      # 決定雜訊No
+        else:
+            No = Eb / snr[i] * Nr
 
         for j in range(N):
             for m in range(len(symbol)):  # 決定傳送向量，要送哪些實數元素
@@ -541,7 +575,7 @@ for k in range(2):
 
 
             if k == 1:  # 因為不用真的去做ML detection的模擬，所以也不用花時間找錯幾個bit
-                continue
+                break
 
             if constellation_name == 'QPSK':  # 計算QPSK錯幾個bit
                 for m in range(len(symbol_new)):
@@ -591,61 +625,160 @@ for k in range(2):
             plt.plot(snr_db, mult_computation, marker='o', label='{0} (sphere decoding) soft={1}'.format(constellation_name, soft))
 
         if N >= 1000000:  # 在很多點模擬分析的情況下，錯誤率較正確，我們可以將數據存起來，之後就不用在花時間去模擬
-            if way == 3:  # 若採用BFS搜尋
-                with open('sphere decoding  for {0}, soft = {1}, {2}, K={3} (Nt={4}, Nr={5}).dat'.format(constellation_name, soft, way_name, K1, Nt, Nr), 'w') as f:
-                    f.write('snr_db\n')
-                    for m in range(len(snr_db)):
-                        f.write("{0} ".format(snr_db[m]))
-                    f.write('\nber\n')
-                    for m in range(len(snr_db)):
-                        f.write("{0} ".format(ber[m]))
-                    f.write('\nAverage visited node\n')
-                    for m in range(len(snr_db)):
-                        f.write("{0} ".format(visited_node[m]))
-                    f.write("\nAddition complexity\n")
-                    for m in range(len(snr_db)):
-                        f.write("{0} ".format(add_computation[m]))
-                    f.write("\nMultiplication complexity\n")
-                    for m in range(len(snr_db)):
-                        f.write("{0} ".format(mult_computation[m]))
-            else:
-                with open('sphere decoding  for {0}, soft = {1}, {2} (Nt={3}, Nr={4}).dat'.format(constellation_name, soft, way_name, Nt, Nr),'w') as f:
-                    f.write('snr_db\n')
-                    for m in range(len(snr_db)):
-                        f.write("{0} ".format(snr_db[m]))
-                    f.write('\nber\n')
-                    for m in range(len(snr_db)):
-                        f.write("{0} ".format(ber[m]))
-                    f.write('\nAverage visited node\n')
-                    for m in range(len(snr_db)):
-                        f.write("{0} ".format(visited_node[m]))
-                    f.write("\nAddition complexity\n")
-                    for m in range(len(snr_db)):
-                        f.write("{0} ".format(add_computation[m]))
-                    f.write("\nMultiplication complexity\n")
-                    for m in range(len(snr_db)):
-                        f.write("{0} ".format(mult_computation[m]))
+            if normalize == 0: # 若接收端不對雜訊normalize
+                if way == 3:   # 若採用BFS搜尋
+                    with open('sphere decoding  for {0}(non-normalize), soft = {1}, {2}, K={3} (Nt={4}, Nr={5}).dat'.format(constellation_name, soft, way_name, K1, Nt, Nr), 'w') as f:
+                        f.write('snr_db\n')
+                        for m in range(len(snr_db)):
+                            f.write("{0} ".format(snr_db[m]))
+                            if m < len(snr_db)-1:
+                                f.write(",")
+                        f.write('\nber\n')
+                        for m in range(len(snr_db)):
+                            f.write("{0} ".format(ber[m]))
+                            if m < len(snr_db)-1:
+                                f.write(",")
+                        f.write('\nAverage visited node\n')
+                        for m in range(len(snr_db)):
+                            f.write("{0} ".format(visited_node[m]))
+                            if m < len(snr_db)-1:
+                                f.write(",")
+                        f.write("\nAddition complexity\n")
+                        for m in range(len(snr_db)):
+                            f.write("{0} ".format(add_computation[m]))
+                            if m < len(snr_db)-1:
+                                f.write(",")
+                        f.write("\nMultiplication complexity\n")
+                        for m in range(len(snr_db)):
+                            f.write("{0} ".format(mult_computation[m]))
+                            if m < len(snr_db)-1:
+                                f.write(",")
+                else:
+                    with open('sphere decoding  for {0}(non-normaize), soft = {1}, {2} (Nt={3}, Nr={4}).dat'.format(constellation_name, soft, way_name, Nt, Nr),'w') as f:
+                        f.write('snr_db\n')
+                        for m in range(len(snr_db)):
+                            f.write("{0} ".format(snr_db[m]))
+                            if m < len(snr_db)-1:
+                                f.write(",")
+                        f.write('\nber\n')
+                        for m in range(len(snr_db)):
+                            f.write("{0} ".format(ber[m]))
+                            if m < len(snr_db)-1:
+                                f.write(",")
+                        f.write('\nAverage visited node\n')
+                        for m in range(len(snr_db)):
+                            f.write("{0} ".format(visited_node[m]))
+                            if m < len(snr_db)-1:
+                                f.write(",")
+                        f.write("\nAddition complexity\n")
+                        for m in range(len(snr_db)):
+                            f.write("{0} ".format(add_computation[m]))
+                            if m < len(snr_db)-1:
+                                f.write(",")
+                        f.write("\nMultiplication complexity\n")
+                        for m in range(len(snr_db)):
+                            f.write("{0} ".format(mult_computation[m]))
+                            if m < len(snr_db)-1:
+                                f.write(",")
+
+            else:             # 若接收端對雜訊normalize
+                if way == 3:  # 若採用BFS搜尋
+                    with open('sphere decoding  for {0}(normalize), soft = {1}, {2}, K={3} (Nt={4}, Nr={5}).dat'.format(constellation_name, soft, way_name, K1, Nt, Nr), 'w') as f:
+                        f.write('snr_db\n')
+                        for m in range(len(snr_db)):
+                            f.write("{0} ".format(snr_db[m]))
+                            if m < len(snr_db)-1:
+                                f.write(",")
+                        f.write('\nber\n')
+                        for m in range(len(snr_db)):
+                            f.write("{0} ".format(ber[m]))
+                            if m < len(snr_db)-1:
+                                f.write(",")
+                        f.write('\nAverage visited node\n')
+                        for m in range(len(snr_db)):
+                            f.write("{0} ".format(visited_node[m]))
+                            if m < len(snr_db)-1:
+                                f.write(",")
+                        f.write("\nAddition complexity\n")
+                        for m in range(len(snr_db)):
+                            f.write("{0} ".format(add_computation[m]))
+                            if m < len(snr_db)-1:
+                                f.write(",")
+                        f.write("\nMultiplication complexity\n")
+                        for m in range(len(snr_db)):
+                            f.write("{0} ".format(mult_computation[m]))
+                            if m < len(snr_db)-1:
+                                f.write(",")
+                else:
+                    with open('sphere decoding  for {0}(normaize), soft = {1}, {2} (Nt={3}, Nr={4}).dat'.format(constellation_name, soft, way_name, Nt, Nr),'w') as f:
+                        f.write('snr_db\n')
+                        for m in range(len(snr_db)):
+                            f.write("{0} ".format(snr_db[m]))
+                            if m < len(snr_db)-1:
+                                f.write(",")
+                        f.write('\nber\n')
+                        for m in range(len(snr_db)):
+                            f.write("{0} ".format(ber[m]))
+                            if m < len(snr_db)-1:
+                                f.write(",")
+                        f.write('\nAverage visited node\n')
+                        for m in range(len(snr_db)):
+                            f.write("{0} ".format(visited_node[m]))
+                            if m < len(snr_db)-1:
+                                f.write(",")
+                        f.write("\nAddition complexity\n")
+                        for m in range(len(snr_db)):
+                            f.write("{0} ".format(add_computation[m]))
+                            if m < len(snr_db)-1:
+                                f.write(",")
+                        f.write("\nMultiplication complexity\n")
+                        for m in range(len(snr_db)):
+                            f.write("{0} ".format(mult_computation[m]))
+                            if m < len(snr_db)-1:
+                                f.write(",")
+
+
+
+
 
     elif k == 1:
         # 我們先前就已完成ML detection的模擬，直接拿來用吧
-        with open('../ML detection/data/ML detection for {0} (Nt={1}, Nr={2}).dat'.format(constellation_name, Nt, Nr)) as f:
-            # 以下的步驟都是讀取數據
-            f.readline()                                   # 這一行讀取到字串 "snr_db"
-            snr_db_string = f.readline()[:-2]              # 這一行讀取到的是各個 snr 組成的字串
-            snr_db_list = snr_db_string.split(' ')          # 將各snr 組成的字串分開
-            for m in range(len(snr_db_list)):
-                snr_db_list[m] = float(snr_db_list[m])
-            f.readline()                                   # 這一行讀取到字串 "ber"
-            ber_string = f.readline()[:-1]                 # 這一行讀取到的是個個 ber 組成的字串
-            ber_list = ber_string.split(' ')                # 將各個ber 組成的字串分開
-            for m in range(len(ber_list)):
-                ber_list[m] = float(ber_list[m])
+        try:
+            if normalize == 0:
+                with open('../ML detection/data/non-normalize/ML detection for {0} (non-normalize)(Nt={1}, Nr={2}).dat'.format(constellation_name, Nt, Nr)) as f:
+                    # 以下的步驟都是讀取數據
+                    f.readline()                                   # 這一行讀取到字串 "snr_db"
+                    snr_db_string = f.readline()[:-2]              # 這一行讀取到的是各個 snr 組成的字串
+                    snr_db_list = snr_db_string.split(' ')          # 將各snr 組成的字串分開
+                    for m in range(len(snr_db_list)):
+                        snr_db_list[m] = float(snr_db_list[m])
+                    f.readline()                                   # 這一行讀取到字串 "ber"
+                    ber_string = f.readline()[:-1]                 # 這一行讀取到的是個個 ber 組成的字串
+                    ber_list = ber_string.split(' ')                # 將各個ber 組成的字串分開
+                    for m in range(len(ber_list)):
+                        ber_list[m] = float(ber_list[m])
+            else:
+                with open('../ML detection/data/normalize/ML detection for {0} (normalize)(Nt={1}, Nr={2}).dat'.format(constellation_name, Nt, Nr)) as f:
+                    # 以下的步驟都是讀取數據
+                    f.readline()                                   # 這一行讀取到字串 "snr_db"
+                    snr_db_string = f.readline()[:-2]              # 這一行讀取到的是各個 snr 組成的字串
+                    snr_db_list = snr_db_string.split(' ')          # 將各snr 組成的字串分開
+                    for m in range(len(snr_db_list)):
+                        snr_db_list[m] = float(snr_db_list[m])
+                    f.readline()                                   # 這一行讀取到字串 "ber"
+                    ber_string = f.readline()[:-1]                 # 這一行讀取到的是個個 ber 組成的字串
+                    ber_list = ber_string.split(' ')                # 將各個ber 組成的字串分開
+                    for m in range(len(ber_list)):
+                        ber_list[m] = float(ber_list[m])
+            if way == 3:
+                plt.figure('BER({0}), soft={1}, {2}, K={3}'.format(constellation_name, soft, way_name, K1))
+            else:
+                plt.figure('BER({0}), soft={1}, {2}'.format(constellation_name, soft, way_name))
+            plt.semilogy(snr_db_list, ber_list, marker='o', label='{0} (ML detection)'.format(constellation_name))
+        except:
+            print("no ML detection")
 
-        if way == 3:
-            plt.figure('BER({0}), soft={1}, {2}, K={3}'.format(constellation_name, soft, way_name, K1))
-        else:
-            plt.figure('BER({0}), soft={1}, {2}'.format(constellation_name, soft, way_name))
-        plt.semilogy(snr_db_list, ber_list, marker='o', label='{0} (ML detection)'.format(constellation_name))
+
         #plt.semilogy(snr_db, ber, marker='o', label='{0} (ML decoding)'.format(constellation_name))
         # ML detection 的拜訪點數就不印出來了
         #plt.figure('Average visited node')
@@ -658,7 +791,7 @@ total_time = tend - tstart
 total_time = int(total_time)
 day = 0
 hour = 0
-min = 0
+minute = 0
 sec = 0
 if(total_time > 24*60*60):
     day = total_time // (24*60*60)
@@ -667,15 +800,20 @@ if(total_time > 60*60):
     hour = total_time // (60*60)
     total_time %= (60*60)
 if(total_time > 60):
-    min = total_time // 60
+    minute = total_time // 60
     total_time %= 60
 sec = float(total_time) + (tend - tstart) - int(tend - tstart)
-print("spend {0} day, {1} hour, {2} min, {3:0.3f} sec".format(day,hour,min,sec))
+print("spend {0} day, {1} hour, {2} min, {3:0.3f} sec".format(day,hour,minute,sec))
 
 if way == 3:
     plt.figure('BER({0}), soft={1}, {2}, K={3}'.format(constellation_name, soft, way_name, K1))
 else:
     plt.figure('BER({0}), soft={1}, {2}'.format(constellation_name, soft, way_name))
+ticks = [0]*20
+for i in range(20):
+    ticks[i] = 2*i
+plt.xticks(ticks)
+plt.xlim(min(snr_db)-1,max(snr_db)+1)
 plt.xlabel('Eb/No , dB')
 plt.ylabel('ber')
 plt.legend()

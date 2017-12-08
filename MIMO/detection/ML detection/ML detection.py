@@ -6,9 +6,9 @@ import time
 tstart = time.time()
 
 snr_db = [0]*13
-snr = [0]*13
-ber = [0]*13
-N = 10000  #執行N次來找錯誤率
+snr = [0]*len(snr_db)
+ber = [0]*len(snr_db)
+N = 10000000  #執行N次來找錯誤率
 Nt = 2       #傳送端天線數
 Nr = 2       #接收端天線數
 
@@ -19,38 +19,71 @@ symbol = np.matrix([0j]*Nt).T   #因為有Nt根天線，而且接收端不採用
 y = np.matrix([0j]*Nr).T       #接收端的向量
 
 # 定義BPSK星座點
-constellation = [1,-1]
-constellation_name = 'BPSK'
+#constellation = [1,-1]
+#constellation_name = 'BPSK'
 
-# 定義QPSK星座點
-constellation = [1+1j, 1-1j, -1+1j, -1-1j]
-constellation_name = 'QPSK'
-'''
-# 定義16QAM星座點
-constellation = [1+1j,1+3j,3+1j,3+3j,-1+1j,-1+3j,-3+1j,-3+3j,-1-1j,-1-3j,-3-1j,-3-3j,1-1j,1-3j,3-1j,3-3j]
-constellation_name = '16QAM'
-
-
+# 利用constellation_num決定要用哪種星座點
+constellation_num = 1
+if constellation_num == 1:
+    # 定義星座點，QPSK symbol值域為{1+j , 1-j , -1+j , -1-j }
+    # 則實部、虛部值域皆為{ -1, 1 }
+    constellation = [1 + 1j, 1 - 1j, -1 + 1j, -1 - 1j]
+    constellation_new = [-1, 1]
+    constellation_name = 'QPSK'
+elif constellation_num == 2:
+    # 定義星座點，16QAM symbol值域為{1+1j,1+3j,3+1j,3+3j,-1+1j,-1+3j,-3+1j,-3+3j,-1-1j,-1-3j,-3-1j,-3-3j,1-1j,1-3j,3-1j,3-3j }
+    # 則實部、虛部值域皆為{ -3, -1, 1, 3}
+    constellation = [1+1j,1+3j,3+1j,3+3j,-1+1j,-1+3j,-3+1j,-3+3j,-1-1j,-1-3j,-3-1j,-3-3j,1-1j,1-3j,3-1j,3-3j]
+    constellation_new = [-3, -1, 1, 3]
+    constellation_name = '16QAM'
+elif constellation_num == 3:
 # 定義64QAM星座點
-constellation_new = [-7, -5, -3, -1, 1, 3, 5, 7]
-constellation_name = '64QAM'
-constellation = []
-for i in range(len(constellation_new)):
-    for j in range(len(constellation_new)):
-        constellation += [constellation_new[i] + 1j * constellation_new[j]]
-'''
+    constellation_new = [-7, -5, -3, -1, 1, 3, 5, 7]
+    constellation_name = '64QAM'
+    constellation = []
+    for i in range(len(constellation_new)):
+        for j in range(len(constellation_new)):
+            constellation += [constellation_new[i] + 1j * constellation_new[j]]
+
+
+normalize = 1  # 決定接收端是否要對雜訊normalize (若為0代表不normalize，若為1代表要normalize)
 
 # 在terminal顯示目前是跑哪一種調變的模擬，而且跑幾個點
-print('{0}模擬 , N={1}'.format(constellation_name, N))
+print('{0} ML detection模擬 , N={1} , Nr={2}, Nt={3}'.format(constellation_name, N, Nr, Nt))
+if normalize == 0:
+    print("non-normalize")
+else:
+    print("normalize")
 
 # 根據不同的調變設定snr 間距
 for i in range(len(snr)):
-    if constellation_name == 'QPSK':
-        snr_db[i] = 2 * i
-    elif constellation_name == '16QAM':
-        snr_db[i] = 2.5 * i
-    elif constellation_name == '64QAM':
-        snr_db[i] = 3 * i
+    if Nt == 2:
+        if constellation_name == 'QPSK':
+            snr_db[i] = 2 * i
+        elif constellation_name == '16QAM':
+            snr_db[i] = 2.5 * i
+        elif constellation_name == '64QAM':
+            snr_db[i] = 3 * i
+        else:
+            snr_db[i] = 2 * i
+    elif Nt == 3:
+        if constellation_name == 'QPSK':
+            snr_db[i] = 1.7 * i
+        elif constellation_name == '16QAM':
+            snr_db[i] = 2.2 * i
+        elif constellation_name == '64QAM':
+            snr_db[i] = 2.6 * i
+        else:
+            snr_db[i] = 2 * i
+    elif Nt == 4:
+        if constellation_name == 'QPSK':
+            snr_db[i] = 1.5 * i
+        elif constellation_name == '16QAM':
+            snr_db[i] = 1.9 * i
+        elif constellation_name == '64QAM':
+            snr_db[i] = 2.3 * i
+        else:
+            snr_db[i] = 2 * i
     else:
         snr_db[i] = 2 * i
     snr[i] = np.power(10, snr_db[i] / 10)
@@ -78,7 +111,10 @@ for k in range(3):
             ber[i] = ber[i]*ber[i]*(1+2*(1-ber[i]))
             continue
         for j in range(N):
-            No = Eb / snr[i]
+            if normalize == 0:
+                No = Eb / snr[i]       # 決定雜訊No
+            else:
+                No = Eb / snr[i] * Nr
 
             for m in range(Nt):  # 傳送端一次送出Nt個不同symbol
                 b = np.random.random()  # 產生一個 (0,1) uniform 分布的隨機變數
@@ -189,13 +225,22 @@ for k in range(3):
         plt.semilogy(snr_db, ber, marker='o', label='ML detection for {0} (Nt={1} , Nr={2} )'.format(constellation_name,Nt,Nr))
         # 將錯誤率的數據存成檔案
         if N >= 1000000:   # 在很多點模擬分析的情況下，錯誤率較正確，我們可以將數據存起來，之後就不用在花時間去模擬
-            with open('ML detection for {0} (Nt={1}, Nr={2}).dat'.format(constellation_name,Nt,Nr),'w') as f:
-                f.write('snr_db\n')
-                for m in range(len(snr_db)):
-                    f.write("{0} ".format(snr_db[m]))
-                f.write('\nber\n')
-                for m in range(len(snr_db)):
-                    f.write("{0} ".format(ber[m]))
+            if normalize == 0:
+                with open('ML detection for {0} (non-normalize)(Nt={1}, Nr={2}).dat'.format(constellation_name,Nt,Nr),'w') as f:
+                    f.write('snr_db\n')
+                    for m in range(len(snr_db)):
+                        f.write("{0} ".format(snr_db[m]))
+                    f.write('\nber\n')
+                    for m in range(len(snr_db)):
+                        f.write("{0} ".format(ber[m]))
+            else:
+                with open('ML detection for {0} (normalize)(Nt={1}, Nr={2}).dat'.format(constellation_name,Nt,Nr),'w') as f:
+                    f.write('snr_db\n')
+                    for m in range(len(snr_db)):
+                        f.write("{0} ".format(snr_db[m]))
+                    f.write('\nber\n')
+                    for m in range(len(snr_db)):
+                        f.write("{0} ".format(ber[m]))
     '''  #以下部分可省略
     elif k==3 :
         plt.semilogy(snr_db, ber, marker='o', label='ML detection for {0} (Nt=2 , Nr=2 )'.format(constellation_name))
@@ -211,7 +256,7 @@ total_time = tend - tstart
 total_time = int(total_time)
 day = 0
 hour = 0
-min = 0
+minute = 0
 sec = 0
 if(total_time > 24*60*60):
     day = total_time // (24*60*60)
@@ -220,10 +265,10 @@ if(total_time > 60*60):
     hour = total_time // (60*60)
     total_time %= (60*60)
 if(total_time > 60):
-    min = total_time // 60
+    minute = total_time // 60
     total_time %= 60
 sec = float(total_time) + (tend - tstart) - int(tend - tstart)
-print("spend {0} day, {1} hour, {2} min, {3:0.3f} sec".format(day,hour,min,sec))
+print("spend {0} day, {1} hour, {2} min, {3:0.3f} sec".format(day,hour,minute,sec))
 
 plt.xlabel('Eb/No , dB')
 plt.ylabel('ber')
