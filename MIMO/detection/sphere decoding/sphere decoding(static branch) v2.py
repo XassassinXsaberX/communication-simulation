@@ -30,7 +30,7 @@ y_new = np.matrix([0j]*2*Nr).transpose()       # 將接收端的向量，對其�
 
 
 # 利用constellation_num決定要用哪種星座點
-constellation_num = 3
+constellation_num = 1
 if constellation_num == 1:
     # 定義星座點，QPSK symbol值域為{1+j , 1-j , -1+j , -1-j }
     # 則實部、虛部值域皆為{ -1, 1 }
@@ -53,7 +53,7 @@ elif constellation_num == 3:
             constellation += [constellation_new[i] + 1j * constellation_new[j]]
 
 
-soft = 3             # 選擇幾個soft 值
+soft = 2             # 選擇幾個soft 值
 normalize = 1        # 決定接收端是否要對雜訊normalize (若為0代表不normalize，若為1代表要normalize)
 
 # 在terminal顯示目前是跑哪一種調變的模擬，而且跑幾個點
