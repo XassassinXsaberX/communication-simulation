@@ -5,9 +5,9 @@ import math
 # MMSE 的公式推導可參考 https://www.youtube.com/watch?v=aQqgMcSviko
 # 如果要直接看結論公式可快轉到 30:52
 
-snr_db = [0]*12
-snr = [0]*12
-ber = [0]*12
+snr_db = [0]*13
+snr = [0]*len(snr_db)
+ber = [0]*len(snr_db)
 Nt = 2 #傳送端天線數
 Nr = 2 #接收端天線數
 N = 1000000 #執行N次來找錯誤率
@@ -19,25 +19,67 @@ for i in range(len(snr)):
 constellation = [ -1, 1 ]
 constellation_name="BPSK"
 
-# 定義QPSK星座點
-constellation = [ -1-1j, -1+1j, 1-1j, 1+1j ]
-constellation_name="QPSK"
+# 利用constellation_num決定要用哪種星座點
+constellation_num = 1
+if constellation_num == 1:
+    # 定義星座點，QPSK symbol值域為{1+j , 1-j , -1+j , -1-j }
+    # 則實部、虛部值域皆為{ -1, 1 }
+    constellation = [1 + 1j, 1 - 1j, -1 + 1j, -1 - 1j]
+    constellation_new = [-1, 1]
+    constellation_name = 'QPSK'
+elif constellation_num == 2:
+    # 定義星座點，16QAM symbol值域為{1+1j,1+3j,3+1j,3+3j,-1+1j,-1+3j,-3+1j,-3+3j,-1-1j,-1-3j,-3-1j,-3-3j,1-1j,1-3j,3-1j,3-3j }
+    # 則實部、虛部值域皆為{ -3, -1, 1, 3}
+    constellation = [1+1j,1+3j,3+1j,3+3j,-1+1j,-1+3j,-3+1j,-3+3j,-1-1j,-1-3j,-3-1j,-3-3j,1-1j,1-3j,3-1j,3-3j]
+    constellation_new = [-3, -1, 1, 3]
+    constellation_name = '16QAM'
+elif constellation_num == 3:
+# 定義64QAM星座點
+    constellation_new = [-7, -5, -3, -1, 1, 3, 5, 7]
+    constellation_name = '64QAM'
+    constellation = []
+    for i in range(len(constellation_new)):
+        for j in range(len(constellation_new)):
+            constellation += [constellation_new[i] + 1j * constellation_new[j]]
 
 
-# 定義16QAM星座點
-constellation = [1+1j,1+3j,3+1j,3+3j,-1+1j,-1+3j,-3+1j,-3+3j,-1-1j,-1-3j,-3-1j,-3-3j,1-1j,1-3j,3-1j,3-3j]
-constellation_name='16QAM'
-'''
-# 接著定義64QAM星座點
-constellation_new = [-7 , -5, -3, -1, 1, 3, 5, 7]
-constellation_name = '64QAM'
-constellation = []
-for i in range(len(constellation_new)):
-    for j in range(len(constellation_new)):
-        constellation += [constellation_new[i] + 1j*constellation_new[j]]
-'''
+normalize = 1            # 決定接收端是否要對雜訊normalize (若為0代表不normalize，若為1代表要normalize)
 
 
+# 根據不同的調變設定snr 間距
+for i in range(len(snr)):
+    if Nt == 2:
+        if constellation_name == 'QPSK':
+            snr_db[i] = 2 * i
+        elif constellation_name == '16QAM':
+            snr_db[i] = 2.5 * i
+        elif constellation_name == '64QAM':
+            snr_db[i] = 3 * i
+        else:
+            snr_db[i] = 2 * i
+        if normalize == 1:
+            snr_db[i] += 10 * np.log10(Nr)
+    elif Nt == 3:
+        if constellation_name == 'QPSK':
+            snr_db[i] = 1.7 * i
+        elif constellation_name == '16QAM':
+            snr_db[i] = 2.2 * i
+        elif constellation_name == '64QAM':
+            snr_db[i] = 2.6 * i
+        else:
+            snr_db[i] = 2 * i
+    elif Nt == 4:
+        if constellation_name == 'QPSK':
+            snr_db[i] = 1.5 * i
+        elif constellation_name == '16QAM':
+            snr_db[i] = 1.9 * i
+        elif constellation_name == '64QAM':
+            snr_db[i] = 2.3 * i
+        else:
+            snr_db[i] = 2 * i
+    else:
+        snr_db[i] = 2 * i
+    snr[i] = np.power(10, snr_db[i] / 10)
 
 #這裡採用 Nt x Nr 的MIMO系統，所以通道矩陣為 Nr x Nt
 H = [[0j]*Nt for i in range(Nr)]
@@ -57,7 +99,11 @@ for k in range(4):
         Es = energy / len(constellation)    # 平均一個symbol有Es的能量
         Eb = Es / K                         # 平均一個bit有Eb能量
         # 因為沒有像space-time coding 一樣重複送data，所以Eb不會再變大
-        No = Eb / snr[i]                    # 最後決定No
+
+        if normalize == 0:
+            No = Eb / snr[i]                      # 決定雜訊No
+        else:
+            No = Eb / snr[i] * Nr
 
         if k==0:# MRC(1x2) for BPSK (theory)
             ber[i] = 1 / 2 - 1 / 2 * np.power(1 + 1 / snr[i], -1 / 2)
